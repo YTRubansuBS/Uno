@@ -1,37 +1,43 @@
 # UNO Online
 
-Jeu UNO web avec trois modes :
+Jeu UNO web simple et rapide :
 
-- Solo contre 1 à 3 IA avec niveaux Facile, Normal et Difficile.
-- Multijoueur privé jusqu'à 4 joueurs avec salon et code à 6 caractères.
-- Compte Supabase ou compte local sur l'appareil.
+- Solo contre 1 à 3 IA avec Facile, Normal ou Difficile.
+- Multijoueur privé jusqu'à 4 joueurs avec un code à 6 caractères.
+- Compte en ligne avec pseudo + mot de passe.
+- Compte local sans inscription.
+- Toutes les données du multijoueur et des comptes passent par Redis côté serveur.
+- Le navigateur ne parle jamais directement à Redis : les routes Next.js sécurisent les actions.
 
-## Installation
+## Lancer en local
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Supabase
+Crée un fichier `.env.local` avec :
 
-Copie `.env.example` en `.env.local` et renseigne `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY` (ou les alias `NEXT_PUBLIC_URL` et `NEXT_PUBLIC_KEY`).
+```env
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
+```
 
-Puis exécute `supabase/schema.sql` dans le SQL Editor de ton projet Supabase.
+## Vercel + Redis
 
-Active l'authentification Email/Password dans Supabase Auth.
+Dans Vercel, connecte le projet à **Upstash Redis** depuis le Marketplace. L'intégration crée les variables Redis pour le projet. Après l'ajout ou la modification des variables, redéploie le projet.
 
-Important : seule la clé publishable/anon doit être envoyée au navigateur. Ne mets jamais `service_role` dans les variables `NEXT_PUBLIC_*`.
+Le jeu utilise ces variables, avec les noms Upstash classiques acceptés en local :
+
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
 
 ## Multijoueur
 
-Le créateur du salon est l'hôte et synchronise l'état de la partie. Les actions des joueurs passent par `room_actions`, puis l'hôte valide et applique les règles UNO. Les mains des joueurs sont stockées séparément et ne sont lisibles que par le joueur concerné ou l'hôte via RLS.
-
-Le bouton de partage copie soit le code, soit un lien `?room=XXXXXX` qui ouvre directement l'écran Rejoindre.
+Le serveur garde le salon, les joueurs, les mains et l'état de la partie dans Redis. Les navigateurs interrogent simplement le salon régulièrement pour voir les nouveaux coups. Une serrure Redis empêche deux actions de modifier le même salon au même moment.
 
 ## Vérification
 
-Le workflow GitHub Actions `Verify` lance automatiquement `npm run lint` puis `npm run build` à chaque push sur `main` et sur les pull requests.
-
-
-Deployment: Vercel is configured for the Next.js framework with automatic output detection.
+GitHub Actions lance `npm run lint` puis `npm run build` à chaque push sur `main` et sur les pull requests.
