@@ -77,8 +77,10 @@ export default function UnoApp() {
 
     const code = new URLSearchParams(window.location.search).get("room");
     if (code) {
-      setJoiningCode(code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6));
-      setView("join");
+      window.setTimeout(() => {
+        setJoiningCode(code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6));
+        setView("join");
+      }, 0);
     }
     return () => window.clearTimeout(timer);
   }, []);
