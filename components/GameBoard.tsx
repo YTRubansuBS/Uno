@@ -127,8 +127,9 @@ export function RemoteGameBoard(props: {
 }) {
   const { roomState, players, hand, isTurn, pending, pendingWild, winnerName, onPlay, onColor, onDraw, onUno, onLeave, onHome } = props;
   const top = roomState.discard[roomState.discard.length - 1];
-  const playable = isTurn && top && roomState.currentColor
-    ? hand.filter((card) => canPlay(card, top, roomState.currentColor))
+  const currentColor = roomState.currentColor;
+  const playable = isTurn && top && currentColor
+    ? hand.filter((card) => canPlay(card, top, currentColor))
     : [];
   const current = players.find((player) => player.id === roomState.currentPlayerId);
 
