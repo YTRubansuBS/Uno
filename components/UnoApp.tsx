@@ -89,7 +89,7 @@ export default function UnoApp() {
   }, [localGame?.currentPlayerIndex, localGame?.status, difficulty]);
 
   useEffect(() => {
-    if (!room || !supabase || room.status === "waiting") return;
+    if (!room || !supabase) return;
     const channel = supabase.channel("uno-room-" + room.id)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: "id=eq." + room.id }, () => void refreshRoom(room.id))
       .on("postgres_changes", { event: "*", schema: "public", table: "room_players", filter: "room_id=eq." + room.id }, () => void refreshRoom(room.id))
@@ -127,9 +127,9 @@ export default function UnoApp() {
     } catch (error) { tell(errText(error), "error"); } finally { setAuthBusy(false); }
   }
 
-  function useLocal() { const chosen = window.prompt("Ton pseudo local", local?.username || ""); if (chosen === null) return; const account = createLocalAccount(chosen); setLocal(account); setUser(null); setAuthOpen(false); tell("Compte local activé.", "success"); }
+  function useLocal() { const chosen = window.prompt("Ton pseudo local", local?.username || ""); if (chosen === null) return; void supabase?.auth.signOut(); const account = createLocalAccount(chosen); setLocal(account); setUser(null); setAuthOpen(false); tell("Compte local activé.", "success"); }
   function resetLocal() { clearLocalAccount(); setLocal(null); tell("Compte local supprimé.", "success"); }
-  async function logout() { if (supabase) await supabase.auth.signOut(); setUser(null); setName(""); setFriendsOpen(false); setView("home"); tell("Déconnecté.", "success"); }
+  async function logout() { if (room && user) await leaveRoom(); if (supabase) await supabase.auth.signOut(); setUser(null); setName(""); setFriendsOpen(false); setView("home"); tell("Déconnecté.", "success"); }
 
   function startAi() { setLocalGame(createLocalGame(display, aiCount, difficulty)); setView("ai"); setLocalWild(null); }
   function playLocalCard(card: UnoCard) {
@@ -223,7 +223,7 @@ export default function UnoApp() {
       const counts = publicPlayerCounts(result.state.order, result.hands);
       const upHand = await supabase.from("room_hands").upsert(result.state.order.map((id) => ({ room_id: latest.id, user_id: id, hand: result.hands[id] || [] })), { onConflict: "room_id,user_id" }); if (upHand.error) return;
       const upPlayers = await supabase.from("room_players").upsert((pp.data || []).map((p) => ({ ...p, card_count: counts[p.user_id] || 0 })), { onConflict: "room_id,user_id" }); if (upPlayers.error) return;
-      const upRoom = await supabase.from("rooms").update({ status: result.state.status, state: result.state }).eq("id", latest.id).eq("host_id", user.id).eq("state->>version", String(latest.state.version)); if (upRoom.error) return;
+      const upRoom = await supabase.from("rooms").update({ status: result.state.status, state: result.state }).eq("id", latest.id).eq("host_id", user.id); if (upRoom.error) return;
       await supabase.from("room_actions").update({ processed_at: new Date().toISOString() }).eq("id", actionId); await refreshRoom(latest.id);
     } finally { lockedActions.current.delete(actionId); }
   }
