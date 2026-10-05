@@ -160,10 +160,10 @@ export default function UnoApp() {
   }
 
   async function logout() {
+    if (room) await leaveRoom();
     try { await apiJson<{ ok: boolean }>("/api/auth", { method: "POST", body: JSON.stringify({ action: "logout" }) }); } catch {}
     setUser(null);
     setAuthOpen(false);
-    if (room) await leaveRoom();
     setView("home");
     tell("Déconnecté.", "success");
   }
@@ -219,24 +219,14 @@ export default function UnoApp() {
     }
     try {
       await ensureServerUser();
-      const data = await apiJson<PublicRoom>("/api/rooms?code=" + encodeURIComponent(code));
-      if (data.status !== "waiting") throw new Error("Cette partie a déjà commencé.");
-      if (!data.players.some((player) => player.id === user?.id)) {
-        throw new Error("Ce salon n'est pas ouvert à cette session.");
-      }
-      applyRoom(data);
+      const result = await apiJson<PublicRoom>("/api/rooms", {
+        method: "POST",
+        body: JSON.stringify({ action: "join", code, username: display })
+      });
+      applyRoom(result);
       tell("Salon rejoint.", "success");
     } catch (error) {
-      try {
-        const result = await apiJson<PublicRoom>("/api/rooms", {
-          method: "POST",
-          body: JSON.stringify({ action: "join", code, username: display })
-        });
-        applyRoom(result);
-        tell("Salon rejoint.", "success");
-      } catch (secondError) {
-        tell(secondError instanceof Error ? secondError.message : (error instanceof Error ? error.message : "Impossible de rejoindre."), "error");
-      }
+      tell(error instanceof Error ? error.message : "Impossible de rejoindre.", "error");
     }
   }
 
