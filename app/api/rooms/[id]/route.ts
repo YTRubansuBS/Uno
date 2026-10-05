@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/serverAuth";
 import { redisConfigured } from "@/lib/redis";
 import { getRoom, publicRoom, saveRoom, type RedisRoom } from "@/lib/roomServer";
+import { createRemoteState } from "@/lib/uno";
+
 
 export const runtime = "nodejs";
 
@@ -17,6 +19,39 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     return NextResponse.json(publicRoom(room, user.id));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Impossible de charger le salon." }, { status: 400 });
+  }
+}
+
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  if (!redisConfigured) return NextResponse.json({ error: "Redis n'est pas configuré." }, { status: 503 });
+  try {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Session introuvable.");
+    const { id } = await context.params;
+    const room = await getRoom(id);
+    if (!room) throw new Error("Salon fermé.");
+    if (room.hostId !== user.id) throw new Error("Seul l'hôte peut lancer la partie.");
+    if (room.status !== "waiting") return NextResponse.json(publicRoom(room, user.id));
+    if (room.players.length < 2) throw new Error("Il faut au moins 2 joueurs.");
+
+    const ordered = [...room.players].sort((a, b) => a.seat - b.seat);
+    const state = createRemoteState(ordered.map((p) => ({ id: p.id })));
+    const hands: Record<string, import("@/lib/types").UnoCard[]> = Object.fromEntries(ordered.map((p) => [p.id, []]));
+    const deck = [...state.deck];
+    for (let round = 0; round < 7; round++) {
+      for (const player of ordered) {
+        const card = deck.pop();
+        if (card) hands[player.id].push(card);
+      }
+    }
+    state.deck = deck;
+    room.state = state;
+    room.status = "playing";
+    room.players = ordered.map((p, index) => ({ ...p, seat: index, hand: hands[p.id] ?? [] }));
+    await saveRoom(room);
+    return NextResponse.json(publicRoom(room, user.id));
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Impossible de lancer la partie." }, { status: 400 });
   }
 }
 
