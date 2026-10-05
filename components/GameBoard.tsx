@@ -139,7 +139,7 @@ export function RemoteGameBoard(props: {
       <span className={"simple-turn-pill " + (isTurn ? "mine" : "")}>{isTurn ? "À TOI" : "TOUR DE " + (current?.username || "...")}</span>
     </header>
 
-    <SimplePlayers players={players.filter((player) => player.id !== roomState.order.find((id) => id === roomState.currentPlayerId) || true).map((player) => ({
+    <SimplePlayers players={players.map((player) => ({
       id: player.id, name: player.username, count: player.cardCount, isTurn: player.id === roomState.currentPlayerId, isBot: false
     }))} />
 
