@@ -32,3 +32,6 @@ Le bouton de partage copie soit le code, soit un lien `?room=XXXXXX` qui ouvre d
 ## Vérification
 
 Le workflow GitHub Actions `Verify` lance automatiquement `npm run lint` puis `npm run build` à chaque push sur `main` et sur les pull requests.
+
+
+Deployment: Vercel is configured for the Next.js framework with automatic output detection.
