@@ -23,7 +23,8 @@ export default function AccountModal(props: {
 }) {
   if (!props.open) return null;
 
-  const online = props.user?.kind === "account";
+  const onlineUser = props.user?.kind === "account" ? props.user : null;
+  const online = Boolean(onlineUser);
 
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) props.onClose(); }}>
     <div className="modal-card">
@@ -45,9 +46,9 @@ export default function AccountModal(props: {
         {props.user?.kind === "guest" && <div className="modal-warning">Tu joues actuellement en invité. Crée un compte pour garder ton pseudo.</div>}
       </>}
 
-      {online && <div className="account-connected">
-        <div className="connected-avatar">{props.user.username.slice(0, 1).toUpperCase()}</div>
-        <b>@{props.user.username}</b>
+      {onlineUser && <div className="account-connected">
+        <div className="connected-avatar">{onlineUser.username.slice(0, 1).toUpperCase()}</div>
+        <b>@{onlineUser.username}</b>
         <small>Compte en ligne</small>
         <button className="danger-btn full" onClick={props.onLogout}><LogOut size={17} /> Se déconnecter</button>
       </div>}
