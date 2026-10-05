@@ -6,7 +6,7 @@ import type { User } from "@supabase/supabase-js";
 import AccountModal from "@/components/AccountModal";
 import FriendsModal, { type FriendItem, type FriendSearchItem } from "@/components/FriendsModal";
 import { ColorPicker, LocalGameBoard, RemoteGameBoard } from "@/components/GameBoard";
-import { applyRemoteAction, canPlay, createLocalGame, createRemoteState, drawLocal, localPlayableCards, playLocal, publicPlayerCounts, chooseAiCard } from "@/lib/uno";
+import { applyRemoteAction, createLocalGame, createRemoteState, drawLocal, localPlayableCards, playLocal, publicPlayerCounts, chooseAiCard } from "@/lib/uno";
 import { createLocalAccount, clearLocalAccount, getLocalAccount } from "@/lib/storage";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Color, Difficulty, LocalAccount, LocalGame, RemoteGameState, RoomAction, UnoCard } from "@/lib/types";
