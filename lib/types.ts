@@ -27,7 +27,6 @@ export interface LocalGame {
   currentPlayerIndex: number;
   direction: 1 | -1;
   winnerId: string | null;
-  deckCount?: number;
 }
 
 export interface RemotePlayer {
@@ -49,6 +48,7 @@ export interface RemoteGameState {
   discard: UnoCard[];
   currentColor: Color | null;
   winnerId: string | null;
+  deckCount?: number;
 }
 
 export interface LocalAccount {
