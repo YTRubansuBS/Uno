@@ -20,6 +20,21 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
     const user = await ensureUser(String(body.username || "Invité"));
+
+    if (body.action === "join") {
+      const code = String(body.code || "").toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(code)) throw new Error("Code invalide.");
+      const room = await getRoomByCode(code);
+      if (!room) return NextResponse.json({ error: "Salon introuvable." }, { status: 404 });
+      if (room.status !== "waiting") throw new Error("Cette partie a déjà commencé.");
+      if (room.players.some((p) => p.id === user.id)) return NextResponse.json(publicRoom(room, user.id));
+      if (room.players.length >= 4) throw new Error("Salon complet.");
+      const seat = room.players.length;
+      room.players.push({ id: user.id, username: user.username, seat, isHost: false, hand: [] });
+      await saveRoom(room);
+      return NextResponse.json(publicRoom(room, user.id));
+    }
+
     let code = "";
     for (let attempt = 0; attempt < 12; attempt++) {
       const candidate = makeRoomCode();
