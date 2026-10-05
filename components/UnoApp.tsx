@@ -61,19 +61,22 @@ export default function UnoApp() {
   const remoteTurn = Boolean(room && user && room.status === "playing" && room.state.currentPlayerId === user.id);
 
   useEffect(() => {
-    setLocal(getLocalAccount());
-    if (!supabase) return;
+    const localTimer = window.setTimeout(() => setLocal(getLocalAccount()), 0);
+    if (!supabase) return () => window.clearTimeout(localTimer);
     supabase.auth.getSession().then(async ({ data }) => { setUser(data.session?.user ?? null); if (data.session?.user) await loadProfile(data.session.user); });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user ?? null); if (session?.user) void loadProfile(session.user); else setName(""); });
-    return () => listener.subscription.unsubscribe();
+    return () => { window.clearTimeout(localTimer); listener.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => { gameRef.current = localGame; }, [localGame]);
   useEffect(() => { roomRef.current = room; }, [room]);
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("room");
-    if (code) { setJoiningCode(code.toUpperCase().slice(0, 6)); setView("join"); }
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("room");
+      if (code) { setJoiningCode(code.toUpperCase().slice(0, 6)); setView("join"); }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -86,7 +89,7 @@ export default function UnoApp() {
       const pick = chooseAiCard(currentGame, ai.id); setLocalGame(pick.card ? playLocal(currentGame, ai.id, pick.card.id, pick.color) : drawLocal(currentGame, ai.id));
     }, difficulty === "hard" ? 700 : 1000);
     return () => window.clearTimeout(timer);
-  }, [localGame?.currentPlayerIndex, localGame?.status, difficulty]);
+  }, [localGame, difficulty]);
 
   useEffect(() => {
     if (!room || !supabase) return;
@@ -98,6 +101,8 @@ export default function UnoApp() {
     channelRef.current = channel;
     if (user?.id === room.host_id) void queuePending(room.id);
     return () => { if (supabase && channelRef.current) void supabase.removeChannel(channelRef.current); channelRef.current = null; };
+  // The room subscription intentionally keys off room id/status/user id; callbacks use current refs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id, room?.status, user?.id]);
 
   function tell(text: string, kind: Notice["kind"] = "info") { setNotice({ text, kind }); window.setTimeout(() => setNotice(null), 3500); }
