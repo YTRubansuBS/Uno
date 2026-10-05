@@ -66,8 +66,10 @@ export default function UnoApp() {
   const inGame = Boolean((view === "ai" && localGame) || view === "remote");
 
   useEffect(() => {
-    const saved = getLocalAccount();
-    if (saved) setLocal(saved);
+    const timer = window.setTimeout(() => {
+      const saved = getLocalAccount();
+      if (saved) setLocal(saved);
+    }, 0);
 
     void apiJson<{ configured: boolean; user: SessionUser | null }>("/api/auth")
       .then((data) => { setRedisReady(data.configured); setUser(data.user); })
@@ -78,6 +80,7 @@ export default function UnoApp() {
       setJoiningCode(code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6));
       setView("join");
     }
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => { gameRef.current = localGame; }, [localGame]);
@@ -103,6 +106,8 @@ export default function UnoApp() {
       void refreshRoom(room.id, true);
     }, 900);
     return () => window.clearInterval(timer);
+    // Polling intentionally calls the latest refreshRoom function.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, room?.id]);
 
   function tell(text: string, kind: "info" | "success" | "error" = "info") {
@@ -143,7 +148,7 @@ export default function UnoApp() {
     }
   }
 
-  async function useLocal() {
+  async function activateLocal() {
     const chosen = window.prompt("Ton pseudo", local?.username || "Joueur");
     if (chosen === null) return;
     const account = createLocalAccount(chosen);
@@ -444,7 +449,7 @@ export default function UnoApp() {
       user={user}
       localUsername={local?.username || null}
       onSubmit={() => void submitAuth()}
-      onLocal={() => void useLocal()}
+      onLocal={() => void activateLocal()}
       onLogout={() => void logout()}
       onResetLocal={resetLocal}
       onClose={() => setAuthOpen(false)}
