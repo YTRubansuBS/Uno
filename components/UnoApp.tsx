@@ -12,7 +12,8 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Color, Difficulty, LocalAccount, LocalGame, RemoteGameState, RoomAction, UnoCard } from "@/lib/types";
 
 type View = "home" | "ai" | "create" | "join" | "room" | "remote";
-type Notice = { kind: "info" | "success" | "error"; text: string } | null;
+type NoticeKind = "info" | "success" | "error";
+type Notice = { kind: NoticeKind; text: string } | null;
 type Room = { id: string; code: string; host_id: string; status: "waiting" | "playing" | "finished"; state: RemoteGameState; settings: { maxPlayers?: number } };
 type PlayerRow = { id: string; room_id: string; user_id: string; username: string; seat: number; card_count: number; ready: boolean };
 type FriendRowDb = { id: string; requester_id: string; addressee_id: string; status: "pending" | "accepted" | "blocked" };
@@ -105,7 +106,7 @@ export default function UnoApp() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id, room?.status, user?.id]);
 
-  function tell(text: string, kind: Notice["kind"] = "info") { setNotice({ text, kind }); window.setTimeout(() => setNotice(null), 3500); }
+  function tell(text: string, kind: NoticeKind = "info") { setNotice({ text, kind }); window.setTimeout(() => setNotice(null), 3500); }
 
   async function loadProfile(u: User) {
     if (!supabase) return;
