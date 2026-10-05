@@ -27,6 +27,7 @@ export interface LocalGame {
   currentPlayerIndex: number;
   direction: 1 | -1;
   winnerId: string | null;
+  deckCount?: number;
 }
 
 export interface RemotePlayer {
