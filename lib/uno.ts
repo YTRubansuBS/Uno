@@ -75,7 +75,7 @@ export function canPlay(card: UnoCard, top: UnoCard, currentColor: Color) {
     card.kind === "wild4" ||
     card.color === currentColor ||
     (card.kind === "number" && top.kind === "number" && card.value === top.value) ||
-    (card.kind !== "number" && card.kind !== "wild" && card.kind !== "wild4" && card.kind === top.kind)
+    ((card.kind === "skip" || card.kind === "reverse" || card.kind === "draw2") && card.kind === top.kind)
   );
 }
 
