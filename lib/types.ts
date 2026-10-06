@@ -62,5 +62,6 @@ export interface RoomAction {
   type: "play" | "draw" | "uno";
   userId: string;
   cardId?: string;
+  cardIds?: string[];
   chosenColor?: Color;
 }
