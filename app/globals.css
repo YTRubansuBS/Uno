@@ -147,6 +147,58 @@
   font-size:10px;
   font-weight:800;
 }
+.opponent-hands {
+  max-width:1180px;
+  margin:8px auto 2px;
+  display:flex;
+  justify-content:center;
+  gap:18px;
+  flex-wrap:wrap;
+}
+.opponent-hand {
+  min-width:150px;
+  padding:7px 9px 9px;
+  border-radius:14px;
+  background:rgba(0,0,0,.14);
+  border:1px solid rgba(255,255,255,.1);
+}
+.opponent-hand-turn {
+  background:rgba(255,255,255,.12);
+  box-shadow:0 0 0 2px rgba(255,255,255,.18);
+}
+.opponent-hand-label {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  margin-bottom:6px;
+  color:#fff;
+  font-size:9px;
+}
+.opponent-hand-label b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.opponent-hand-label span { opacity:.68; font-weight:900; white-space:nowrap; }
+.opponent-card-stack { display:flex; align-items:center; min-height:47px; }
+.opponent-card-back {
+  width:30px;
+  height:43px;
+  margin-left:-13px;
+  border:2px solid #fff;
+  border-radius:6px;
+  display:grid;
+  place-items:center;
+  background:repeating-linear-gradient(25deg,#171717 0 6px,#292929 6px 12px);
+  box-shadow:0 4px 8px rgba(0,0,0,.22);
+  transform:rotate(-2deg);
+}
+.opponent-card-back:first-child { margin-left:0; }
+.opponent-card-back span { color:#fff; font-size:7px; font-weight:1000; letter-spacing:.5px; transform:rotate(-10deg); }
+.opponent-more {
+  margin-left:7px;
+  color:#fff;
+  font-size:10px;
+  font-weight:1000;
+}
+
 .simple-table {
   max-width:850px;
   min-height:310px;
@@ -337,6 +389,10 @@
   .simple-turn-pill { max-width:150px; }
   .simple-players { justify-content:flex-start; overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; }
   .simple-player { min-width:128px; }
+  .opponent-hands { justify-content:flex-start; overflow-x:auto; flex-wrap:nowrap; padding:0 2px 3px; scrollbar-width:none; }
+  .opponent-hands::-webkit-scrollbar { display:none; }
+  .opponent-hand { min-width:145px; }
+  .opponent-card-back { width:27px; height:39px; }
   .simple-table { min-height:250px; gap:24px; }
   .simple-deck-button { width:86px; height:120px; border-width:4px; border-radius:15px; }
   .simple-deck-button span { font-size:22px; }
