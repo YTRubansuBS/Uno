@@ -103,7 +103,7 @@ export default function UnoApp() {
   }, [localGame, difficulty]);
 
   useEffect(() => {
-    if (view !== "remote" || !room?.id) return;
+    if ((view !== "remote" && view !== "room") || !room?.id) return;
     const timer = window.setInterval(() => {
       void refreshRoom(room.id, true);
     }, 700);
