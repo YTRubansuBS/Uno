@@ -223,6 +223,39 @@ export function playLocal(
   return next;
 }
 
+export function playLocalCards(
+  game: LocalGame,
+  playerId: string,
+  cardIds: string[]
+): LocalGame {
+  if (cardIds.length < 2 || game.status !== "playing") return game;
+  const playerIndex = game.players.findIndex((p) => p.id === playerId);
+  if (playerIndex !== game.currentPlayerIndex) return game;
+  const player = game.players[playerIndex];
+  const cards = cardIds.map((id) => player.hand.find((card) => card.id === id)).filter(Boolean) as UnoCard[];
+  if (cards.length !== cardIds.length || cards.some((card) => card.kind !== "number")) return game;
+  const value = cards[0].value;
+  if (value === null || cards.some((card) => card.value !== value)) return game;
+  const top = game.discard[game.discard.length - 1];
+  if (!canPlay(cards[0], top, game.currentColor)) return game;
+
+  const next = structuredClone(game);
+  const nextPlayer = next.players[playerIndex];
+  const selected = new Set(cardIds);
+  nextPlayer.hand = nextPlayer.hand.filter((card) => !selected.has(card.id));
+  next.discard.push(...cards);
+  next.currentColor = cards[cards.length - 1].color!;
+
+  if (nextPlayer.hand.length === 0) {
+    next.status = "finished";
+    next.winnerId = playerId;
+    return next;
+  }
+
+  next.currentPlayerIndex = nextIndex(playerIndex, next.direction, next.players.length);
+  return next;
+}
+
 export function drawLocal(game: LocalGame, playerId: string): LocalGame {
   if (game.status !== "playing") return game;
   const playerIndex = game.players.findIndex((p) => p.id === playerId);
@@ -330,23 +363,37 @@ export function applyRemoteAction(
     return { state: { ...state, version: state.version + 1 }, hands };
   }
 
-  if (!action.cardId) return null;
-  const cardIndex = actorHand.findIndex((card) => card.id === action.cardId);
-  if (cardIndex < 0) return null;
-  const card = actorHand[cardIndex];
-  if (!canPlay(card, top, state.currentColor!)) return null;
-  if ((card.kind === "wild" || card.kind === "wild4") && !action.chosenColor) return null;
+  const ids = action.cardIds?.length ? action.cardIds : action.cardId ? [action.cardId] : [];
+  if (!ids.length) return null;
+
+  const selected = ids.map((id) => actorHand.find((card) => card.id === id));
+  if (selected.some((card) => !card)) return null;
+  const cards = selected as UnoCard[];
+
+  const isDouble = cards.length >= 2;
+  if (isDouble) {
+    if (cards.some((card) => card.kind !== "number")) return null;
+    const value = cards[0].value;
+    if (value === null || cards.some((card) => card.value !== value)) return null;
+    if (!cards.every((card) => canPlay(card, top, state.currentColor!))) return null;
+  } else {
+    const card = cards[0];
+    if (!canPlay(card, top, state.currentColor!)) return null;
+    if ((card.kind === "wild" || card.kind === "wild4") && !action.chosenColor) return null;
+  }
 
   const next = structuredClone(state);
   const nextHands = structuredClone(hands);
-  const hand = [...actorHand];
-  const [played] = hand.splice(cardIndex, 1);
+  const selectedIds = new Set(ids);
+  const hand = actorHand.filter((card) => !selectedIds.has(card.id));
+  const played = cards;
   nextHands[action.userId] = hand;
-  next.discard.push(played);
+  next.discard.push(...played);
+  const lastPlayed = played[played.length - 1];
   next.currentColor =
-    played.kind === "wild" || played.kind === "wild4"
+    lastPlayed.kind === "wild" || lastPlayed.kind === "wild4"
       ? action.chosenColor!
-      : played.color!;
+      : lastPlayed.color!;
 
   if (hand.length === 0) {
     next.status = "finished";
