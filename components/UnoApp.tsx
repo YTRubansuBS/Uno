@@ -4,7 +4,7 @@ import { Bot, Copy, Gamepad2, Globe2, LogIn, Plus, Sparkles, Users, X, Zap } fro
 import { useEffect, useRef, useState } from "react";
 import AccountModal from "@/components/AccountModal";
 import { ColorPicker, LocalGameBoard, RemoteGameBoard } from "@/components/GameBoard";
-import { chooseAiCard, createLocalGame, drawLocal, localPlayableCards, playLocal } from "@/lib/uno";
+import { chooseAiCard, createLocalGame, drawLocal, localPlayableCards, playLocal, playLocalCards } from "@/lib/uno";
 import { clearLocalAccount, createLocalAccount, getLocalAccount } from "@/lib/storage";
 import type { Color, Difficulty, LocalAccount, LocalGame, RemoteGameState, UnoCard } from "@/lib/types";
 
@@ -106,7 +106,7 @@ export default function UnoApp() {
     if (view !== "remote" || !room?.id) return;
     const timer = window.setInterval(() => {
       void refreshRoom(room.id, true);
-    }, 900);
+    }, 700);
     return () => window.clearInterval(timer);
     // Polling intentionally calls the latest refreshRoom function.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,8 +187,18 @@ export default function UnoApp() {
       tell("Tu ne peux pas jouer cette carte.", "error");
       return;
     }
-    if (card.kind === "wild" || card.kind === "wild4") setLocalWild(card);
-    else setLocalGame(playLocal(localGame, "human", card.id));
+    if (card.kind === "wild" || card.kind === "wild4") {
+      setLocalWild(card);
+      return;
+    }
+    const doubles = localGame.players.find((p) => p.id === "human")?.hand.filter(
+      (item) => item.id !== card.id && item.kind === "number" && item.value === card.value
+    ) ?? [];
+    if (card.kind === "number" && doubles.length > 0) {
+      setLocalGame(playLocalCards(localGame, "human", [card.id, doubles[0].id]));
+    } else {
+      setLocalGame(playLocal(localGame, "human", card.id));
+    }
   }
 
   function pickLocalColor(color: Color) {
@@ -259,7 +269,7 @@ export default function UnoApp() {
     }
   }
 
-  async function submitAction(action: { type: "play" | "draw" | "uno"; cardId?: string; chosenColor?: Color }) {
+  async function submitAction(action: { type: "play" | "draw" | "uno"; cardId?: string; cardIds?: string[]; chosenColor?: Color }) {
     if (!room || !user || !remoteTurn || movePending) return;
     setMovePending(true);
     try {
@@ -424,8 +434,18 @@ export default function UnoApp() {
       winnerName={room.state.winnerId ? (room.players.find((p) => p.id === room.state.winnerId)?.username || null) : null}
       onPlay={(card) => {
         if (!remoteTurn || movePending) return;
-        if (card.kind === "wild" || card.kind === "wild4") setRemoteWild(card);
-        else void submitAction({ type: "play", cardId: card.id });
+        if (card.kind === "wild" || card.kind === "wild4") {
+          setRemoteWild(card);
+          return;
+        }
+        const doubles = room.hand.filter(
+          (item) => item.id !== card.id && item.kind === "number" && item.value === card.value
+        );
+        if (card.kind === "number" && doubles.length > 0) {
+          void submitAction({ type: "play", cardIds: [card.id, doubles[0].id] });
+        } else {
+          void submitAction({ type: "play", cardId: card.id });
+        }
       }}
       onColor={(color) => {
         if (!remoteWild) return;
