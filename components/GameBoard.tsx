@@ -144,6 +144,20 @@ export function RemoteGameBoard(props: {
       id: player.id, name: player.username, count: player.cardCount, isTurn: player.id === roomState.currentPlayerId, isBot: false
     }))} />
 
+    <div className="opponent-hands" aria-label="Cartes des adversaires">
+      {players.filter((player) => player.cardCount > 0).map((player) => (
+        <div className={"opponent-hand " + (player.id === roomState.currentPlayerId ? "opponent-hand-turn" : "")} key={player.id}>
+          <div className="opponent-hand-label"><b>@{player.username}</b><span>{player.cardCount} carte{player.cardCount > 1 ? "s" : ""}</span></div>
+          <div className="opponent-card-stack">
+            {Array.from({ length: Math.min(player.cardCount, 8) }).map((_, index) => (
+              <span className="opponent-card-back" key={index}><span>UNO</span></span>
+            ))}
+            {player.cardCount > 8 && <span className="opponent-more">+{player.cardCount - 8}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+
     <div className="simple-table">
       <div className="simple-pile">
         <button className="simple-deck-button" onClick={onDraw} disabled={!isTurn || pending}><span>UNO</span><small>+1</small></button>
