@@ -28,6 +28,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       type: body.type,
       userId: user.id,
       cardId: typeof body.cardId === "string" ? body.cardId : undefined,
+      cardIds: Array.isArray(body.cardIds) ? body.cardIds.filter((id: unknown): id is string => typeof id === "string") : undefined,
       chosenColor: body.chosenColor
     };
 
