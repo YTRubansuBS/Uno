@@ -2,14 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "UNO — Online & IA",
-  description: "UNO moderne avec IA, salons privés, amis et comptes Supabase."
+  title: "Geometry Dash World — UNO",
+  description: "Geometry Dash World : niveaux, pièces secrètes, cubes, trails, fonds et améliorations."
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  colorScheme: "light"
+  colorScheme: "dark"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
