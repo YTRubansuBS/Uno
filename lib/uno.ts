@@ -192,8 +192,8 @@ export function playLocal(
   }
 
   let steps = 1;
-  if (lastPlayed.kind === "skip") steps = 2;
-  if (lastPlayed.kind === "reverse") {
+  if (played.kind === "skip") steps = 2;
+  if (played.kind === "reverse") {
     if (next.players.length === 2) steps = 2;
     else next.direction = next.direction === 1 ? -1 : 1;
   }
@@ -406,8 +406,8 @@ export function applyRemoteAction(
   const currentIndex = state.order.indexOf(action.userId);
   let steps = 1;
 
-  if (played.kind === "skip") steps = 2;
-  if (played.kind === "reverse") {
+  if (lastPlayed.kind === "skip") steps = 2;
+  if (lastPlayed.kind === "reverse") {
     if (state.order.length === 2) steps = 2;
     else next.direction = state.direction === 1 ? -1 : 1;
   }
