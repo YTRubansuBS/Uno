@@ -28,7 +28,6 @@ export default function GeometryDashGame(){
  const claimDaily=()=>{const info=dailyInfo(save);if(!info.ready){say("Ta récompense quotidienne est déjà récupérée. Reviens demain !");return}setSave(prev=>({...prev,coins:prev.coins+info.reward,dailyClaimDate:info.today,dailyStreak:info.streak}));say(`Récompense quotidienne : +${info.reward} pièces ! Série ${info.streak}/7 🔥`)};
  const claimMission=(id:string)=>{const mission=getMissions(save).find(m=>m.id===id);if(!mission||!mission.done||mission.claimed)return;setSave(prev=>({...prev,coins:prev.coins+mission.reward,claimedMissions:[...prev.claimedMissions,id]}));say(`Contrat terminé : +${mission.reward} pièces !`)};
 
- const say=useCallback((s:string)=>{setToast(s);setTimeout(()=>setToast(""),2200)},[]);
  // Reading a saved client-side profile requires one hydration effect.
  // eslint-disable-next-line react-hooks/set-state-in-effect
  useEffect(()=>{try{const raw=localStorage.getItem(KEY);if(raw)setSave({...DEFAULT,...JSON.parse(raw)})}catch{}setReady(true)},[]);
