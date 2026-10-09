@@ -92,6 +92,13 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: "trail-cyan", category: "trail", name: "Cyan", price: 200, color: "#46edff", accent: "#46edff", description: "Particules cyan." },
   { id: "trail-pink", category: "trail", name: "Pink", price: 500, color: "#ff63cb", accent: "#ff63cb", description: "Particules roses." },
   { id: "trail-rainbow", category: "trail", name: "Rainbow", price: 1000, color: "#fff", accent: "#fff", description: "Traînée arc-en-ciel.", unlockLevel: 5 },
+  { id: "skin-crystal", category: "skin", name: "Prism", price: 1600, color: "#c8fff8", accent: "#ff8ce8", description: "Un cube prismatique irisé.", unlockLevel: 4 },
+  { id: "skin-glitch", category: "skin", name: "Glitch Core", price: 2400, color: "#17152c", accent: "#ff4b91", description: "Un noyau instable qui clignote.", unlockLevel: 6 },
+  { id: "skin-comet", category: "skin", name: "Comet", price: 3200, color: "#fff0c2", accent: "#ff8b35", description: "Le cube météore des runs parfaites.", unlockLevel: 8 },
+  { id: "bg-emerald", category: "background", name: "Emerald Abyss", price: 1250, color: "#082923", accent: "#39ffc5", description: "Un abysse vert rempli d'énergie.", unlockLevel: 4 },
+  { id: "bg-pink", category: "background", name: "Pink Dimension", price: 1800, color: "#35102e", accent: "#ff5edb", description: "Une dimension rose ultra vive.", unlockLevel: 5 },
+  { id: "trail-ember", category: "trail", name: "Ember", price: 850, color: "#ff884b", accent: "#ffd166", description: "Une traînée de braises.", unlockLevel: 4 },
+  { id: "trail-void", category: "trail", name: "Void Pulse", price: 1450, color: "#bda0ff", accent: "#774bff", description: "Des éclats venus du vide.", unlockLevel: 7 },
 ];
 
 export type UpgradeId = "jump" | "magnet" | "shield" | "multiplier";
