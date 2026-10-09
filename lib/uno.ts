@@ -192,8 +192,8 @@ export function playLocal(
   }
 
   let steps = 1;
-  if (played.kind === "skip") steps = 2;
-  if (played.kind === "reverse") {
+  if (lastPlayed.kind === "skip") steps = 2;
+  if (lastPlayed.kind === "reverse") {
     if (next.players.length === 2) steps = 2;
     else next.direction = next.direction === 1 ? -1 : 1;
   }
@@ -412,8 +412,8 @@ export function applyRemoteAction(
     else next.direction = state.direction === 1 ? -1 : 1;
   }
 
-  if (played.kind === "draw2" || played.kind === "wild4") {
-    const drawCount = played.kind === "draw2" ? 2 : 4;
+  if (lastPlayed.kind === "draw2" || lastPlayed.kind === "wild4") {
+    const drawCount = lastPlayed.kind === "draw2" ? 2 : 4;
     const targetId = state.order[nextIndex(currentIndex, next.direction, state.order.length)];
     const draw = drawMany(next.deck, next.discard, drawCount);
     next.deck = draw.nextDeck;
