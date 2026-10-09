@@ -5,12 +5,12 @@ import { LEVELS, SHOP_ITEMS, UPGRADES, type GDLevel, type ShopItem, type Upgrade
 
 type View = "home" | "levels" | "shop" | "upgrades" | "play";
 type Tab = "skin" | "background" | "trail";
-type Save = { coins:number; unlockedLevel:number; completed:number[]; best:Record<number,number>; secretCoins:string[]; owned:string[]; skin:string; background:string; trail:string; upgrades:Record<UpgradeId,number> };
+type Save = { coins:number; unlockedLevel:number; completed:number[]; best:Record<number,number>; secretCoins:string[]; owned:string[]; skin:string; background:string; trail:string; upgrades:Record<UpgradeId,number>; dailyClaimDate:string; dailyStreak:number; claimedMissions:string[] };
 type Run = { x:number; y:number; vy:number; rotation:number; onGround:boolean; deaths:number; coins:number; collected:string[]; shieldUsed:boolean; done:boolean; won:boolean; percent:number };
 type Particle = {x:number;y:number;vx:number;vy:number;life:number;size:number;hue:number};
 
 const KEY="geometry-dash-uno-v2";
-const DEFAULT:Save={coins:0,unlockedLevel:1,completed:[],best:{},secretCoins:[],owned:["skin-classic","bg-day","trail-none"],skin:"skin-classic",background:"bg-day",trail:"trail-none",upgrades:{jump:0,magnet:0,shield:0,multiplier:0}};
+const DEFAULT:Save={coins:0,unlockedLevel:1,completed:[],best:{},secretCoins:[],owned:["skin-classic","bg-day","trail-none"],skin:"skin-classic",background:"bg-day",trail:"trail-none",upgrades:{jump:0,magnet:0,shield:0,multiplier:0},dailyClaimDate:"",dailyStreak:0,claimedMissions:[]};
 const THEMES:any={neon:["#10153b","#23407d","#55e7ff"],sunset:["#30133a","#ae4145","#ffd166"],forest:["#0d2b28","#21715d","#7dffb2"],void:["#090817","#261553","#cf9cff"],ice:["#102d45","#61afd9","#dffaff"],lava:["#25080d","#86251c","#ffcf55"]};
 const item=(id:string)=>SHOP_ITEMS.find(x=>x.id===id)||SHOP_ITEMS[0];
 const diff=(x:string)=>x==="Démoniaque"?"DEMON":x==="Expert"?"INSANE":x==="Difficile"?"HARD":"NORMAL";
@@ -23,6 +23,11 @@ function sound(kind:string){try{const AC=window.AudioContext||((window as any).w
 
 export default function GeometryDashGame(){
  const [view,setView]=useState<View>("home"),[save,setSave]=useState<Save>(DEFAULT),[ready,setReady]=useState(false),[levelId,setLevelId]=useState(1),[run,setRun]=useState<Run|null>(null),[paused,setPaused]=useState(false),[muted,setMuted]=useState(false),[tab,setTab]=useState<Tab>("skin"),[toast,setToast]=useState(""),[help,setHelp]=useState(false);
+ const say=useCallback((s:string)=>{setToast(s);setTimeout(()=>setToast(""),2200)},[]);
+ const missions=getMissions(save),daily=dailyInfo(save);
+ const claimDaily=()=>{const info=dailyInfo(save);if(!info.ready){say("Ta récompense quotidienne est déjà récupérée. Reviens demain !");return}setSave(prev=>({...prev,coins:prev.coins+info.reward,dailyClaimDate:info.today,dailyStreak:info.streak}));say(`Récompense quotidienne : +${info.reward} pièces ! Série ${info.streak}/7 🔥`)};
+ const claimMission=(id:string)=>{const mission=getMissions(save).find(m=>m.id===id);if(!mission||!mission.done||mission.claimed)return;setSave(prev=>({...prev,coins:prev.coins+mission.reward,claimedMissions:[...prev.claimedMissions,id]}));say(`Contrat terminé : +${mission.reward} pièces !`)};
+
  const say=useCallback((s:string)=>{setToast(s);setTimeout(()=>setToast(""),2200)},[]);
  // Reading a saved client-side profile requires one hydration effect.
  // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -38,6 +43,7 @@ export default function GeometryDashGame(){
  return <div className={view==="play"?"gd-app gd-playing":"gd-app"}>
   {view!=="play"&&<Nav view={view} go={setView} save={save} muted={muted} setMuted={setMuted}/>} 
   {view==="home"&&<HomeScreen save={save} featured={featured} start={start} go={setView} help={setHelp}/>}
+  {view==="home"&&<MissionBoard save={save} missions={missions} dailyReady={daily.ready} dailyReward={daily.reward} dailyStreak={save.dailyStreak} claimDaily={claimDaily} claimMission={claimMission}/>}
   {view==="levels"&&<Levels save={save} selected={levelId} select={setLevelId} start={start} go={setView}/>} 
   {view==="shop"&&<Shop save={save} tab={tab} setTab={setTab} buy={buy} go={setView}/>} 
   {view==="upgrades"&&<Upgrades save={save} upgrade={upgrade} go={setView}/>} 
@@ -52,6 +58,17 @@ export default function GeometryDashGame(){
 function Nav({view,go,save,muted,setMuted}:{view:View;go:(v:View)=>void;save:Save;muted:boolean;setMuted:(v:boolean)=>void}){return <header className="gd-topbar"><button className="gd-logo" onClick={()=>go("home")}><span className="gd-logo-cube">✦</span><span><b>GEOMETRY</b><small>DASH // UNO WORLD</small></span></button><nav>{[["home","Accueil"],["levels","Niveaux"],["shop","Boutique"],["upgrades","Améliorations"]].map(([v,l])=><button key={v} className={view===v?"active":""} onClick={()=>go(v as View)}>{l}</button>)}</nav><div className="gd-nav-right"><span className="gd-coin-pill">◆ {save.coins}</span><button className="gd-icon-btn" onClick={()=>setMuted(!muted)}>{muted?<VolumeX size={17}/>:<Volume2 size={17}/>}</button></div></header>}
 
 function HomeScreen({save,featured,start,go,help}:{save:Save;featured:GDLevel;start:(n:number)=>void;go:(v:View)=>void;help:(b:boolean)=>void}){return <main className="gd-home"><section className="gd-hero"><div className="gd-hero-copy"><span className="gd-kicker"><Sparkles size={14}/> THE UNO WORLD HAS CHANGED</span><h1>RUN.<br/><span>JUMP.</span><br/>BREAK THE LIMIT.</h1><p>Un runner de précision façon Geometry Dash : 8 niveaux, 24 pièces secrètes, cubes, fonds, trails et améliorations permanentes.</p><div className="gd-hero-actions"><button className="gd-primary-btn big" onClick={()=>start(featured.id)}><Play size={19} fill="currentColor"/> JOUER</button><button className="gd-secondary-btn big" onClick={()=>go("levels")}><Gamepad2 size={19}/> NIVEAUX</button></div><button className="gd-help-link" onClick={()=>help(true)}>Comment jouer ? →</button></div><HeroArt level={featured}/></section><div className="gd-stats-row"><Stat icon={<Trophy size={18}/>} v={`${save.completed.length}/${LEVELS.length}`} l="Niveaux terminés"/><Stat icon={<Coins size={18}/>} v={`${save.secretCoins.length}/24`} l="Pièces secrètes"/><Stat icon={<Zap size={18}/>} v={`LVL ${save.unlockedLevel}`} l="Progression"/><Stat icon={<Sparkles size={18}/>} v={`${save.owned.length}`} l="Objets"/></div><section className="gd-home-panels"><div className="gd-panel"><div className="gd-panel-head"><div><span className="gd-kicker">EN VEDETTE</span><h2>{featured.name}</h2></div><i className={`gd-diff ${cls(featured.difficulty)}`}>{diff(featured.difficulty)}</i></div><p>⚡ {Math.round(featured.speed)} vitesse · ◆ 3 pièces · record {save.best[featured.id]||0}%</p><button className="gd-secondary-btn" onClick={()=>start(featured.id)}>Continuer →</button></div><div className="gd-panel"><span className="gd-kicker">TON STYLE</span><h2>Personnalise ton run.</h2><div className="gd-mini-cards"><Mini it={item(save.skin)}/><Mini it={item(save.background)}/><Mini it={item(save.trail)}/></div><button className="gd-secondary-btn" onClick={()=>go("shop")}><ShoppingBag size={16}/> Boutique</button></div></section><section className="gd-callout"><div><span className="gd-kicker">NO CHECKPOINTS. NO EXCUSES.</span><h2>Chaque tentative te rapproche du 100%.</h2><p>Les bonnes runs commencent toujours par un premier essai.</p></div><button className="gd-primary-btn" onClick={()=>go("upgrades")}>DEVENIR PLUS FORT</button></section></main>}
+
+function MissionBoard({save,missions,dailyReady,dailyReward,dailyStreak,claimDaily,claimMission}:{save:Save;missions:Mission[];dailyReady:boolean;dailyReward:number;dailyStreak:number;claimDaily:()=>void;claimMission:(id:string)=>void}){
+ return <section className="gd-mission-board">
+  <div className="gd-mission-head"><div><span className="gd-kicker">QUEST LOG // LIVE</span><h2>Les contrats du runner.</h2><p>Récupère tes bonus, complète les objectifs et remplis ton garage.</p></div><div className="gd-streak-chip"><Sparkles size={16}/><span><b>{dailyStreak}/7</b><small>jours de série</small></span></div></div>
+  <div className="gd-quest-layout">
+   <article className={`gd-daily-card ${dailyReady?"":"claimed"}`}><div className="gd-daily-orb"><Sparkles size={26}/></div><span className="gd-kicker">BONUS QUOTIDIEN</span><h3>{dailyReady?"Le coffre du jour":"À demain, champion."}</h3><p>{dailyReady?"Connecte-toi chaque jour pour augmenter ta récompense jusqu’à 7 jours de série.":"Tu as déjà ouvert ton coffre aujourd’hui. Ta série est conservée."}</p><div className="gd-daily-reward">◆ {dailyReady?dailyReward:"RÉCUPÉRÉ"}</div><button className="gd-primary-btn full" disabled={!dailyReady} onClick={claimDaily}>{dailyReady?"RÉCUPÉRER LE BONUS":"DÉJÀ RÉCUPÉRÉ"}</button></article>
+   <div className="gd-quest-list">{missions.map(m=><article className={`gd-quest-card ${m.done?"complete":""} ${m.claimed?"claimed":""}`} key={m.id}><div className="gd-quest-check">{m.claimed?"✓":m.done?"★":"◆"}</div><div className="gd-quest-copy"><b>{m.title}</b><p>{m.description}</p><div className="gd-quest-progress"><span style={{width:`${Math.min(100,m.progress/m.target*100)}%`}}/></div><small>{m.progress}/{m.target} · récompense ◆ {m.reward}</small></div><button className="gd-quest-claim" disabled={!m.done||m.claimed} onClick={()=>claimMission(m.id)}>{m.claimed?"PRIS":m.done?"RÉCUPÉRER":"EN COURS"}</button></article>)}</div>
+  </div>
+ </section>
+}
+
 function Stat({icon,v,l}:{icon:ReactNode;v:string;l:string}){return <div className="gd-stat"><span>{icon}</span><div><b>{v}</b><small>{l}</small></div></div>}
 function Mini({it}:{it:ShopItem}){return <div className="gd-mini-item"><div className="gd-mini-preview" style={{background:it.color||"#172042",boxShadow:`inset 0 0 30px ${(it.accent||"#72edff")}55`}}>{it.category==="skin"?"◆":it.category==="trail"?"✦":"☁"}</div><b>{it.name}</b></div>}
 function HeroArt({level}:{level:GDLevel}){return <div className="gd-hero-art"><div className="gd-sun"/><div className="gd-grid-floor"/><div className="gd-art-platform p1"/><div className="gd-art-platform p2"/><div className="gd-art-spike s1"/><div className="gd-art-spike s2"/><div className="gd-art-spike s3"/><div className="gd-art-coin">◆</div><div className="gd-art-orb">●</div><div className="gd-art-cube"><span>• •</span><i>⌣</i></div><div className="gd-art-label"><b>LEVEL {level.id}</b><span>{level.name}</span><em>{diff(level.difficulty)}</em></div></div>}
