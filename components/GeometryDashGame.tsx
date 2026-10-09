@@ -32,7 +32,6 @@ export default function GeometryDashGame(){
  const finish=(l:GDLevel,r:Run)=>{const reward=Math.round(80+l.id*25+r.coins*(1+save.upgrades.multiplier*.1)+120);setSave(s=>({...s,coins:s.coins+reward,unlockedLevel:Math.max(s.unlockedLevel,Math.min(LEVELS.length,l.id+1)),completed:s.completed.includes(l.id)?s.completed:[...s.completed,l.id],best:{...s.best,[l.id]:100},secretCoins:[...new Set([...s.secretCoins,...r.collected])]}));if(!muted)sound("win");setRun({...r,done:true,won:true,percent:100})};
  if(!ready)return <div className="gd-loading"><div className="gd-loader-cube"/><b>CHARGEMENT DU MONDE…</b></div>;
  const current=LEVELS.find(l=>l.id===levelId)||LEVELS[0],featured=LEVELS[Math.min(save.unlockedLevel-1,3)]||LEVELS[0];
-in(save.unlockedLevel-1,3)]||LEVELS[0];
  return <div className={view==="play"?"gd-app gd-playing":"gd-app"}>
   {view!=="play"&&<Nav view={view} go={setView} save={save} muted={muted} setMuted={setMuted}/>} 
   {view==="home"&&<HomeScreen save={save} featured={featured} start={start} go={setView} help={setHelp}/>}
