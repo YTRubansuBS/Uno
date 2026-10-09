@@ -16,6 +16,17 @@ const item=(id:string)=>SHOP_ITEMS.find(x=>x.id===id)||SHOP_ITEMS[0];
 const diff=(x:string)=>x==="Démoniaque"?"DEMON":x==="Expert"?"INSANE":x==="Difficile"?"HARD":"NORMAL";
 const cls=(x:string)=>x.toLowerCase().replace(/é/g,"e");
 
+type Mission = {id:string;title:string;description:string;progress:number;target:number;reward:number;done:boolean;claimed:boolean};
+function dateKey(date:Date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`}
+function dailyInfo(save:Save){const now=new Date(),yesterday=new Date(now);yesterday.setDate(now.getDate()-1);const today=dateKey(now),prev=dateKey(yesterday);const ready=save.dailyClaimDate!==today;const streak=save.dailyClaimDate===prev?Math.min(7,save.dailyStreak+1):1;return {today,ready,streak,reward:100+streak*50}}
+function getMissions(save:Save):Mission[]{return [
+{id:"first-clear",title:"Premier clear",description:"Termine un niveau pour commencer ton aventure.",progress:Math.min(save.completed.length,1),target:1,reward:150,done:save.completed.length>=1,claimed:save.claimedMissions.includes("first-clear")},
+{id:"coin-hunter",title:"Chasseur de pièces",description:"Récupère 3 pièces secrètes au total.",progress:Math.min(save.secretCoins.length,3),target:3,reward:250,done:save.secretCoins.length>=3,claimed:save.claimedMissions.includes("coin-hunter")},
+{id:"garage-full",title:"Garage en expansion",description:"Collectionne 5 objets dans la boutique.",progress:Math.min(save.owned.length,5),target:5,reward:300,done:save.owned.length>=5,claimed:save.claimedMissions.includes("garage-full")},
+{id:"world-tour",title:"Tour du monde",description:"Termine 4 niveaux différents.",progress:Math.min(save.completed.length,4),target:4,reward:600,done:save.completed.length>=4,claimed:save.claimedMissions.includes("world-tour")}
+]}
+
+
 function cube(ctx:CanvasRenderingContext2D,x:number,y:number,size:number,skin:ShopItem,r:number){ctx.save();ctx.translate(x+size/2,y+size/2);ctx.rotate(r);const c=skin.color||"#fff",a=skin.accent||"#55e7ff";ctx.shadowBlur=18;ctx.shadowColor=a;ctx.fillStyle=c;ctx.fillRect(-size/2,-size/2,size,size);ctx.shadowBlur=0;ctx.lineWidth=3;ctx.strokeStyle=a;ctx.strokeRect(-size/2,-size/2,size,size);ctx.fillStyle=a;ctx.fillRect(-size*.18,-size*.1,size*.1,size*.1);ctx.fillRect(size*.08,-size*.1,size*.1,size*.1);ctx.strokeStyle=a;ctx.beginPath();ctx.moveTo(-size*.18,size*.17);ctx.lineTo(0,size*.24);ctx.lineTo(size*.18,size*.17);ctx.stroke();ctx.restore()}
 function bg(ctx:CanvasRenderingContext2D,w:number,h:number,id:string,theme:string,camera:number){const b=item(id),t=THEMES[theme]||THEMES.neon;let c1=b.color||t[0],c2=b.accent||t[1];if(id==="bg-day"){c1="#63cbff";c2="#b8efff"}if(id==="bg-space"){c1="#070716";c2="#34205e"}if(id==="bg-lava"){c1="#21070a";c2="#76231b"}const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,c1);g.addColorStop(1,c2);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);for(let i=0;i<20;i++){const x=((i*317-camera*.16)%(w+140))-70,y=60+(i*83%380);ctx.globalAlpha=.2;ctx.fillStyle=i%2?"#fff":t[2];ctx.beginPath();ctx.arc(x,y,12+i%4*7,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1}
 function rounded(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
