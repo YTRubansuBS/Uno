@@ -31,3 +31,9 @@
 @keyframes gd-quest-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:980px){.gd-quest-layout{grid-template-columns:1fr}.gd-daily-card p{min-height:0}}
 @media(max-width:680px){.gd-mission-board{padding:0 14px 33px}.gd-mission-head{align-items:flex-start}.gd-mission-head h2{font-size:27px}.gd-streak-chip{padding:9px 10px}.gd-quest-card{grid-template-columns:31px minmax(0,1fr)}.gd-quest-check{width:30px;height:30px}.gd-quest-claim{grid-column:2;justify-self:start;padding:8px 9px}.gd-daily-card{padding:18px}}
+
+
+.gd-practice-button{margin-top:8px;border-color:#c59aff35;color:#d9c5ff;background:linear-gradient(100deg,#a16aff0b,#7befff07)}
+.gd-practice-button:hover{border-color:#c59aff70;box-shadow:0 0 25px #a16aff12}
+.gd-run-bottom span:nth-child(2){color:#cfc2ff}
+.gd-quest-claim:not(:disabled):hover{background:#7befff1a;border-color:#7befff80}
