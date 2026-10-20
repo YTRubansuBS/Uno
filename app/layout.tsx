@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Geometry Dash World — UNO",
-  description: "Geometry Dash World : niveaux, pièces secrètes, cubes, trails, fonds et améliorations."
+  title: "UnoTube",
+  description: "Une interface vidéo moderne inspirée des plateformes de streaming."
 };
 
 export const viewport: Viewport = {
