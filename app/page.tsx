@@ -21,7 +21,7 @@ export default function Page(){
   const onWheel=(e:WheelEvent)=>{
    if(Math.abs(e.deltaY)<8)return;
    e.preventDefault();
-   el.scrollTo({top:Math.max(0,Math.min((GAMES.length-1)*innerHeight,el.scrollTop+(e.deltaY>0?innerHeight:-innerHeight)),behavior:"smooth"});
+   el.scrollTo({top:Math.max(0,Math.min((GAMES.length-1)*innerHeight,el.scrollTop+(e.deltaY>0?innerHeight:-innerHeight))),behavior:"smooth"});
   };
   el.addEventListener("scroll",sync,{passive:true});
   el.addEventListener("wheel",onWheel,{passive:false});
