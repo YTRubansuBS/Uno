@@ -26,7 +26,7 @@ export default function ArcadeGame({id,color,onScore}:Props){
  const lockT=(s:any)=>{for(const p of s.piece.cells){const x=s.piece.x+p[0],y=s.piece.y+p[1];if(y>=0)s.board[y*10+x]=s.piece.type+1}let n=0;for(let y=19;y>=0;y--)if(s.board.slice(y*10,y*10+10).every(Boolean)){s.board.splice(y*10,10);s.board.unshift(...Array(10).fill(0));n++;y++}if(n){s.lines+=n;s.combo++;setScore(s,s.score+[0,100,300,500,800][n]*s.level+s.combo*25);pts(s,s.w/2,100,"#c4b5fd",n*12)}else s.combo=0;s.level=1+Math.floor(s.lines/10);s.piece=null;s.lock=0};
  const makeBricks=(s:any)=>{s.bricks=[];const rows=Math.min(9,5+s.level);for(let r=0;r<rows;r++)for(let x=0;x<8;x++){const active=s.level%3===1||((x+r)%2===0)||r===0;s.bricks.push({r,x,on:active,hp:r<2&&s.level>2?2:1})}};
  const init=()=>{const s:any={w:c.clientWidth,h:c.clientHeight,score:0,t:0,p:[],shake:0,over:false};
-  if(id==="illegal-runner"){s.lane=1;s.y=s.h*.76;s.ground=s.h*.76;s.vy=0;s.speed=330;s.dist=0;s.coins=0;s.dash=1;s.dashT=0;s.inv=0;s.spawn=0;s.obs=[];s.coinsArr=[]}
+  if(id==="illegal-runner"){s.lane=1;s.y=s.h*.76;s.ground=s.h*.76;s.vy=0;s.speed=300;s.dist=0;s.coins=0;s.dash=1;s.dashT=0;s.inv=0;s.spawn=.55;s.obs=[];s.coinsArr=[];s.scroll=0}
   if(id==="tetris"){s.board=Array(200).fill(0);s.bag=[];s.piece=null;s.hold=null;s.canHold=true;s.next=[];s.drop=0;s.lock=0;s.lines=0;s.level=1;s.combo=0}
   if(id==="2048"){s.board=Array(16).fill(0);s.history=[];s.moves=0;s.combo=0;s.won=false;spawn2048(s);spawn2048(s)}
   if(id==="snake"){s.cols=20;s.rows=20;s.snake=[{x:10,y:10},{x:9,y:10},{x:8,y:10},{x:7,y:10}];s.dir={x:1,y:0};s.queue=[];s.move=0;s.combo=0;s.level=1;s.food=null;s.special=null;s.obstacles=[];placeFood(s)}
@@ -41,11 +41,11 @@ export default function ArcadeGame({id,color,onScore}:Props){
   const hud=(a:string,b:string)=>{ctx.fillStyle="#fff";ctx.font="900 13px Inter,system-ui";ctx.textAlign="left";ctx.fillText(a,18,30);ctx.textAlign="right";ctx.fillStyle="#ffffff99";ctx.fillText(b,s.w-18,30);ctx.textAlign="center"};
   if(id==="illegal-runner"){
    const h=s.h*.43;ctx.fillStyle="#050817";ctx.fillRect(0,h,s.w,s.h-h);ctx.strokeStyle="#00e5ff22";
-   for(let i=0;i<8;i++){const y=h+Math.pow(i/7,1.7)*(s.h-h);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(s.w,y);ctx.stroke()}
-   const lw=Math.min(150,s.w*.24),ox=s.w/2-lw*1.5;
+   for(let i=0;i<9;i++){const y=h+Math.pow(i/8,1.7)*(s.h-h);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(s.w,y);ctx.stroke()}for(let lane=0;lane<3;lane++){const x=ox+(lane+.5)*lw;ctx.strokeStyle="#00e5ff18";ctx.beginPath();ctx.moveTo(x,s.ground);ctx.lineTo(x,h);ctx.stroke()}
+   const lw=Math.min(150,s.w*.22),ox=s.w/2-lw*1.5;ctx.fillStyle="#07111f";ctx.fillRect(0,h,s.w,s.h-h);ctx.fillStyle="#0b2035";ctx.fillRect(0,s.ground,s.w,s.h-s.ground);
    for(const o of s.obs){const x=ox+(o.lane+.5)*lw;ctx.fillStyle=o.kind==="wall"?"#ff375f":"#ff7a3d";ctx.shadowBlur=18;ctx.shadowColor=ctx.fillStyle;ctx.fillRect(x-lw*.32,o.y-28,lw*.64,28);ctx.shadowBlur=0}
    for(const q of s.coinsArr){if(q.got)continue;const x=ox+(q.lane+.5)*lw;ctx.fillStyle="#ffd166";ctx.shadowBlur=14;ctx.shadowColor="#ffd166";ctx.beginPath();ctx.arc(x,q.y,8,0,7);ctx.fill();ctx.shadowBlur=0}
-   const px=ox+(s.lane+.5)*lw;ctx.fillStyle="#00e5ff";ctx.shadowBlur=24;ctx.shadowColor="#00e5ff";ctx.fillRect(px-14,s.y-42,28,42);ctx.fillStyle="#ff37c7";ctx.fillRect(px-9,s.y-59,18,17);ctx.shadowBlur=0;ctx.fillStyle="#00e5ff";ctx.fillRect(0,s.ground,s.w,2);
+   const px=ox+(s.lane+.5)*lw;ctx.fillStyle="#00e5ff";ctx.shadowBlur=24;ctx.shadowColor="#00e5ff";ctx.beginPath();ctx.roundRect(px-16,s.y-42,32,42,8);ctx.fill();ctx.fillStyle="#ff37c7";ctx.beginPath();ctx.roundRect(px-10,s.y-60,20,18,6);ctx.fill();ctx.fillStyle="#fff";ctx.fillRect(px-7,s.y-53,4,4);ctx.fillRect(px+3,s.y-53,4,4);ctx.shadowBlur=0;ctx.fillStyle="#00e5ff";ctx.fillRect(0,s.ground,s.w,2);
    hud("DIST "+Math.floor(s.dist)+"m  •  🪙 "+s.coins,"BEST "+best.current+"  •  ⚡ "+(s.dash?"READY":"CHARGING"));
   }
   if(id==="tetris"){
