@@ -104,3 +104,85 @@ body {
 .scroll-app > .feed-nav {
   z-index: 100;
 }
+
+/* Shorts-style Scroll Game redesign */
+.shorts-app{position:relative;width:100%;height:100svh;min-height:100svh;background:#000;color:#fff;overflow:hidden;font-family:Arial,Helvetica,sans-serif}
+.shorts-top{position:fixed;z-index:300;top:0;left:0;right:0;height:64px;display:flex;align-items:center;padding:0 22px;gap:28px;background:linear-gradient(#000c,transparent);pointer-events:none}
+.shorts-top>*{pointer-events:auto}
+.shorts-logo{border:0;background:none;color:#fff;display:flex;align-items:center;gap:8px;font-size:19px;cursor:pointer}
+.shorts-logo-mark{width:30px;height:22px;border-radius:6px;background:#fff;color:#000;display:grid;place-items:center;font-size:12px}
+.shorts-search{height:40px;width:min(470px,45vw);margin:auto;display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:22px;background:#ffffff12;border:1px solid #ffffff22;color:#aaa;backdrop-filter:blur(14px)}
+.shorts-search input{flex:1;min-width:0;border:0;outline:0;background:none;color:#fff;font-size:14px}
+.shorts-search kbd{border:0;background:none;color:#aaa}
+.shorts-top-actions button{width:38px;height:38px;border-radius:50%;border:1px solid #ffffff22;background:#ffffff12;color:#fff}
+.shorts-categories{position:fixed;z-index:290;top:66px;left:50%;transform:translateX(-50%);display:flex;gap:7px;max-width:92vw;overflow:auto;padding:4px;scrollbar-width:none}
+.shorts-categories::-webkit-scrollbar{display:none}
+.shorts-categories button{white-space:nowrap;border:0;background:#ffffff12;color:#ddd;border-radius:18px;padding:8px 13px;font-size:12px;backdrop-filter:blur(12px)}
+.shorts-categories button.active{background:#fff;color:#080808;font-weight:800}
+.shorts-feed{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;scroll-snap-stop:always;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;scrollbar-width:none}
+.shorts-feed::-webkit-scrollbar{display:none}
+.short-card{position:relative;width:100%;height:100svh;min-height:100svh;scroll-snap-align:start;scroll-snap-stop:always;background:#000;overflow:hidden}
+.short-player{position:absolute;inset:0;display:grid;place-items:center}
+.short-player>.game-stage{width:min(100%,900px);height:100%;min-height:0;border:0;border-radius:0;box-shadow:none}
+.player-top{position:absolute;z-index:12;top:92px;left:22px;right:22px;display:flex;justify-content:space-between;pointer-events:none}
+.live-pill{padding:6px 10px;border-radius:7px;background:#0009;font-size:11px;font-weight:800;backdrop-filter:blur(10px)}
+.player-icon{pointer-events:auto;border:0;background:#0008;color:#fff;border-radius:50%;width:40px;height:40px;backdrop-filter:blur(10px)}
+.player-vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#0008 0%,transparent 18%,transparent 54%,#0002 68%,#000d 100%)}
+.short-bottom{position:absolute;z-index:20;left:max(18px,calc(50% - 450px));bottom:34px;width:min(620px,calc(100% - 125px));text-shadow:0 2px 8px #000}
+.short-creator{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.creator-avatar{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;background:#222;border:1px solid #ffffff44;flex:none}
+.creator-name{font-weight:800;font-size:14px}
+.creator-meta{font-size:11px;color:#ddd;margin-top:2px}
+.follow-btn{margin-left:5px;border:1px solid #ffffff66;background:#fff;color:#000;border-radius:5px;padding:7px 12px;font-size:11px;font-weight:800;text-shadow:none}
+.short-bottom h1{font-size:20px;margin:0 0 5px;font-weight:800}
+.short-bottom p{font-size:13px;line-height:1.4;margin:0 0 9px;max-width:590px;color:#f3f3f3}
+.audio-row{border:0;background:none;color:#fff;padding:0;font-size:12px;display:flex;align-items:center;gap:7px;max-width:350px}
+.audio-row span:last-child{margin-left:auto}
+.short-actions{position:absolute;z-index:30;right:max(12px,calc(50% - 495px));bottom:34px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.short-actions button{border:0;background:none;color:#fff;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:54px;padding:0;text-shadow:0 2px 6px #000;cursor:pointer}
+.short-actions button>span{width:48px;height:48px;display:grid;place-items:center;border-radius:50%;font-size:29px;background:#0003}
+.short-actions small{font-size:10px;color:#fff;max-width:70px;text-align:center}
+.short-actions button.selected>span{color:#ff4f87}
+.action-avatar{font-size:22px!important;border:2px solid #fff}
+.shorts-nav-arrows{position:fixed;z-index:250;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px}
+.shorts-nav-arrows button{width:38px;height:38px;border:1px solid #ffffff22;background:#111b;color:#fff;border-radius:50%}
+.shorts-bottom-nav{display:none}
+.shorts-sheet-backdrop{position:fixed;z-index:600;inset:0;background:#0008;display:flex;align-items:flex-end;justify-content:center}
+.comments-sheet{width:min(620px,100%);height:min(72svh,650px);background:#111;border-radius:18px 18px 0 0;padding:10px 18px 18px;box-shadow:0 -20px 80px #000;display:flex;flex-direction:column}
+.sheet-handle{width:38px;height:4px;border-radius:4px;background:#777;margin:2px auto 10px}
+.sheet-head{display:flex;justify-content:center;align-items:center;position:relative;padding:8px 0 15px;border-bottom:1px solid #292929}
+.sheet-head button{position:absolute;right:0;border:0;background:none;color:#fff;font-size:25px}
+.sheet-comments{flex:1;overflow:auto;padding:8px 0}
+.sheet-comments p{margin:0;padding:12px 2px;border-bottom:1px solid #222;font-size:13px}
+.sheet-comments p b{margin-right:8px}
+.empty-comment{color:#888;text-align:center;border:0!important;margin-top:25%!important}
+.comments-sheet form{display:flex;gap:8px}
+.comments-sheet input{flex:1;min-width:0;border:1px solid #333;background:#050505;color:#fff;border-radius:22px;padding:12px 15px;outline:0}
+.comments-sheet form button{border:0;border-radius:20px;padding:0 16px;font-weight:800}
+.short-empty{height:100%;display:grid;place-items:center;text-align:center;font-size:18px}
+.short-empty b{font-size:60px}
+@media(max-width:760px){
+ .shorts-top{height:54px;padding:0 10px;gap:8px}
+ .shorts-logo b{display:none}
+ .shorts-logo-mark{width:32px;height:23px}
+ .shorts-search{height:36px;flex:1;width:auto}
+ .shorts-top-actions button{width:36px;height:36px}
+ .shorts-categories{top:57px;left:8px;right:8px;transform:none;max-width:none;justify-content:flex-start}
+ .player-top{top:104px;left:10px;right:10px}
+ .short-bottom{left:10px;bottom:70px;width:calc(100% - 85px)}
+ .short-bottom h1{font-size:18px}
+ .short-bottom p{font-size:12px}
+ .short-actions{right:7px;bottom:68px;gap:10px}
+ .short-actions button>span{width:44px;height:44px;font-size:25px}
+ .short-actions small{font-size:8px}
+ .shorts-nav-arrows{display:none}
+ .shorts-bottom-nav{position:fixed;z-index:400;left:0;right:0;bottom:0;height:52px;background:#000;display:flex;justify-content:space-around;padding-bottom:env(safe-area-inset-bottom)}
+ .shorts-bottom-nav button{border:0;background:none;color:#aaa;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:18px}
+ .shorts-bottom-nav button.active{color:#fff}
+ .shorts-bottom-nav small{font-size:9px}
+ .follow-btn{padding:6px 9px}
+}
+@media(min-width:761px){
+ .short-card{background:#000}
+ .short-player>.game-stage{width:min(760px,calc(100vw - 300px));border-radius:10px}
+}
