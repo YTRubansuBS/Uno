@@ -61,3 +61,140 @@ function RPS({onScore}:{onScore:(n:number)=>void}){const choices=["✊","✋","�
 function ConnectFour({onScore}:{onScore:(n:number)=>void}){const [moves,setMoves]=useState<number[]>([]);return <GameShell color="#2563eb"><div className="game-hud"><b>{moves.length}</b><span>🟡 CONNECT 4</span></div><div className="connect-board">{[...Array(42)].map((_,i)=><button key={i} className={moves.includes(i)?"disc":""} onClick={()=>{if(!moves.includes(i)){setMoves(m=>[...m,i]);onScore(moves.length+1)}}}>{moves.includes(i)?"●":""}</button>)}</div></GameShell>}
 function Pinball({onScore}:{game?:Game;onScore:(n:number)=>void}){const [score,setScore]=useState(0),[balls,setBalls]=useState(3);return <GameShell color="#a855f7"><div className="game-hud"><b>{score}</b><span>🌈 PINBALL · {balls} BILLES</span></div><div className="pinball"><button onClick={()=>{if(balls>0){const n=score+100;setScore(n);onScore(n)}}}>●</button><span>★</span><span>◆</span><span>★</span></div><button className="game-main-btn" onClick={()=>setBalls(b=>Math.max(0,b-1))}>LANCER LA BILLE</button></GameShell>}
 function MiniGame({game,onScore}:{game:Game;onScore:(score:number)=>void}){switch(game.id){case"flappy-bird":return <FlappyBird onScore={onScore}/>;case"tetris":return <Tetris onScore={onScore}/>;case"pong":return <Pong onScore={onScore}/>;case"snake":return <Snake onScore={onScore}/>;case"2048":return <Game2048 onScore={onScore}/>;case"minesweeper":return <Minesweeper onScore={onScore}/>;case"doodle-jump":return <DoodleJump onScore={onScore}/>;case"aim-trainer":return <AimTrainer onScore={onScore}/>;case"helicopter":return <Helicopter onScore={onScore}/>;case"memory":return <Memory onScore={onScore}/>;case"reaction-time":return <ReactionTime onScore={onScore}/>;case"breakout":return <Breakout onScore={onScore}/>;case"endless-racer":return <EndlessRacer onScore={onScore}/>;case"rps":return <RPS onScore={onScore}/>;case"connect-four":return <ConnectFour onScore={onScore}/>;default:return <Pinball onScore={onScore}/>;}}
+
+
+export default function Page() {
+  const [category, setCategory] = useState("Pour toi");
+  const [query, setQuery] = useState("");
+  const [liked, setLiked] = usePersistent<string[]>("scroll-liked", []);
+  const [saved, setSaved] = usePersistent<string[]>("scroll-saved", []);
+  const [scores, setScores] = usePersistent<Record<string, number>>("scroll-scores", {});
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return GAMES.filter((game) => {
+      const matchesCategory =
+        category === "Pour toi" ||
+        category === "Tendance" ||
+        category === "Nouveaux" ||
+        game.category === category;
+      const matchesQuery =
+        !q ||
+        game.title.toLowerCase().includes(q) ||
+        game.creator.toLowerCase().includes(q) ||
+        game.description.toLowerCase().includes(q);
+      return matchesCategory && matchesQuery;
+    }).sort((a, b) => {
+      if (category === "Tendance") return b.plays - a.plays;
+      if (category === "Nouveaux") return GAMES.indexOf(a) - GAMES.indexOf(b);
+      return 0;
+    });
+  }, [category, query]);
+
+  const toggleLike = (id: string) => {
+    setLiked((items) => items.includes(id) ? items.filter((x) => x !== id) : [...items, id]);
+  };
+
+  const toggleSave = (id: string) => {
+    setSaved((items) => items.includes(id) ? items.filter((x) => x !== id) : [...items, id]);
+  };
+
+  const recordScore = (id: string, score: number) => {
+    setScores((current) => ({ ...current, [id]: Math.max(current[id] || 0, score) }));
+  };
+
+  return (
+    <main className="scroll-page">
+      <header className="scroll-header">
+        <div className="brand">
+          <span className="brand-mark">↕</span>
+          <span>SCROLL GAME</span>
+        </div>
+        <div className="header-actions">
+          <input
+            className="search-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Rechercher un jeu..."
+            aria-label="Rechercher un jeu"
+          />
+          <button className="profile-button" onClick={() => setProfileOpen(true)}>👤</button>
+        </div>
+      </header>
+
+      <nav className="category-bar" aria-label="Catégories">
+        {categories.map((item) => (
+          <button
+            key={item}
+            className={"category-pill " + (category === item ? "active" : "")}
+            onClick={() => setCategory(item)}
+          >
+            {item}
+          </button>
+        ))}
+      </nav>
+
+      <section className="game-feed">
+        {filtered.map((game, index) => (
+          <article className="game-card" key={game.id} id={game.id}>
+            <div className="game-card-top">
+              <div>
+                <span className="game-category">{game.category}</span>
+                <h1>{game.emoji} {game.title}</h1>
+                <p>{game.description}</p>
+              </div>
+              <div className="game-meta">
+                <span>{game.difficulty}</span>
+                <span>{formatCount(game.plays)} parties</span>
+              </div>
+            </div>
+
+            <MiniGame
+              game={game}
+              onScore={(score) => recordScore(game.id, score)}
+            />
+
+            <aside className="game-actions">
+              <button onClick={() => toggleLike(game.id)} className={liked.includes(game.id) ? "active" : ""}>
+                {liked.includes(game.id) ? "❤️" : "🤍"}<small>{formatCount(game.likes + (liked.includes(game.id) ? 1 : 0))}</small>
+              </button>
+              <button onClick={() => toggleSave(game.id)} className={saved.includes(game.id) ? "active" : ""}>
+                {saved.includes(game.id) ? "🔖" : "📑"}<small>Enregistrer</small>
+              </button>
+              <button onClick={() => {
+                navigator.clipboard?.writeText(window.location.href + "#" + game.id);
+              }}>
+                ↗️<small>Partager</small>
+              </button>
+            </aside>
+
+            <footer className="creator-row">
+              <div>
+                <strong>{game.creator}</strong>
+                <span> · {index + 1}/{filtered.length}</span>
+              </div>
+              <span>🏆 Meilleur score : {scores[game.id] ?? 0}</span>
+            </footer>
+          </article>
+        ))}
+        {!filtered.length && <div className="empty-state">Aucun jeu trouvé.</div>}
+      </section>
+
+      {profileOpen && (
+        <div className="modal-backdrop" onClick={() => setProfileOpen(false)}>
+          <section className="profile-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setProfileOpen(false)}>×</button>
+            <div className="profile-avatar">🎮</div>
+            <h2>Mon profil</h2>
+            <p>{liked.length} jeux aimés · {saved.length} jeux enregistrés</p>
+            <p>{Object.keys(scores).length} jeux joués</p>
+            <button className="game-main-btn" onClick={() => { setLiked([]); setSaved([]); setScores({}); }}>
+              Réinitialiser mes données
+            </button>
+          </section>
+        </div>
+      )}
+    </main>
+  );
+}
