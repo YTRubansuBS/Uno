@@ -1,174 +1,90 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-type Video = {
-  id: number;
-  title: string;
-  channel: string;
-  views: string;
-  age: string;
-  duration: string;
-  category: string;
-  color: string;
-  emoji: string;
+type Game = {
+  id: string; title: string; creator: string; category: string; plays: number; likes: number;
+  color: string; emoji: string; description: string; difficulty: string;
 };
 
-const videos: Video[] = [
-  { id: 1, title: "Je crée un jeu Roblox en 24 heures…", channel: "Ruben Dev", views: "1,2 M", age: "il y a 2 jours", duration: "12:48", category: "Gaming", color: "#283b74", emoji: "🎮" },
-  { id: 2, title: "Le meilleur setup pour coder en 2026", channel: "Tech Zone", views: "845 k", age: "il y a 5 jours", duration: "9:31", category: "Technologie", color: "#314c3f", emoji: "💻" },
-  { id: 3, title: "J'ai testé les jeux Roblox les plus populaires", channel: "Pixel FR", views: "2,8 M", age: "il y a 1 semaine", duration: "18:22", category: "Gaming", color: "#63354e", emoji: "🕹️" },
-  { id: 4, title: "Construire une IA qui reconnaît des images", channel: "CodeLab", views: "421 k", age: "il y a 3 jours", duration: "15:07", category: "Programmation", color: "#234c61", emoji: "🤖" },
-  { id: 5, title: "24 heures dans une ville incroyable", channel: "Max Voyage", views: "3,1 M", age: "il y a 4 jours", duration: "21:04", category: "Voyage", color: "#69502d", emoji: "🌍" },
-  { id: 6, title: "Cette astuce change complètement Minecraft", channel: "BlockMaster", views: "974 k", age: "il y a 6 jours", duration: "11:16", category: "Gaming", color: "#315b45", emoji: "⛏️" },
-  { id: 7, title: "Comment fonctionne Internet ?", channel: "Science Facile", views: "612 k", age: "il y a 2 semaines", duration: "10:42", category: "Éducation", color: "#35416d", emoji: "🌐" },
-  { id: 8, title: "Je transforme mon bureau avec 100 €", channel: "Setup Lab", views: "1,7 M", age: "il y a 8 jours", duration: "13:55", category: "Technologie", color: "#5b3942", emoji: "🖥️" },
-  { id: 9, title: "Le défi impossible sur Geometry Dash", channel: "DashFR", views: "5,4 M", age: "il y a 1 mois", duration: "8:19", category: "Gaming", color: "#304e75", emoji: "⚡" },
-  { id: 10, title: "Apprendre JavaScript rapidement", channel: "Dev Academy", views: "733 k", age: "il y a 3 semaines", duration: "17:12", category: "Programmation", color: "#6b5528", emoji: "JS" },
-  { id: 11, title: "Les secrets des océans", channel: "Curieux", views: "2,2 M", age: "il y a 2 semaines", duration: "14:26", category: "Éducation", color: "#204f63", emoji: "🌊" },
-  { id: 12, title: "Un voyage que je n'oublierai jamais", channel: "Alex Travel", views: "987 k", age: "il y a 4 jours", duration: "19:44", category: "Voyage", color: "#755033", emoji: "✈️" },
+const GAMES: Game[] = [
+  { id:"neon-dash", title:"Neon Dash", creator:"@ruben", category:"Arcade", plays:128400, likes:18400, color:"#6d5dfc", emoji:"⚡", description:"Évite les blocs et tiens le plus longtemps possible.", difficulty:"Difficile" },
+  { id:"stack-it", title:"Stack It!", creator:"@milo", category:"Réflexe", plays:93400, likes:12100, color:"#ff6b6b", emoji:"🧱", description:"Empile les blocs avec le timing parfait.", difficulty:"Moyen" },
+  { id:"flappy-star", title:"Flappy Star", creator:"@lena", category:"Arcade", plays:286700, likes:39700, color:"#38bdf8", emoji:"⭐", description:"Tape pour voler. Passe les obstacles et bats ton record.", difficulty:"Difficile" },
+  { id:"color-rush", title:"Color Rush", creator:"@kai", category:"Réflexe", plays:174200, likes:23100, color:"#f59e0b", emoji:"🎨", description:"Trouve la bonne couleur avant la fin du chrono.", difficulty:"Moyen" },
+  { id:"goal-machine", title:"Goal Machine", creator:"@enzo", category:"Sport", plays:342900, likes:48200, color:"#22c55e", emoji:"⚽", description:"Marque un maximum de buts en 30 secondes.", difficulty:"Facile" },
+  { id:"memory-flip", title:"Memory Flip", creator:"@sora", category:"Puzzle", plays:116800, likes:15300, color:"#ec4899", emoji:"🧠", description:"Mémorise les cases et trouve les paires.", difficulty:"Moyen" },
+  { id:"brick-blast", title:"Brick Blast", creator:"@noah", category:"Arcade", plays:201300, likes:27600, color:"#ef4444", emoji:"💥", description:"Casse les briques et fais le meilleur score.", difficulty:"Moyen" },
+  { id:"snake-zone", title:"Snake Zone", creator:"@zoe", category:"Classique", plays:459800, likes:63100, color:"#10b981", emoji:"🐍", description:"Mange, grandis et ne touche jamais les murs.", difficulty:"Difficile" },
+  { id:"tap-frenzy", title:"Tap Frenzy", creator:"@max", category:"Réflexe", plays:531500, likes:80400, color:"#8b5cf6", emoji:"👆", description:"Tape la cible le plus vite possible pendant 10 secondes.", difficulty:"Facile" },
+  { id:"jump-city", title:"Jump City", creator:"@aya", category:"Runner", plays:219600, likes:30500, color:"#0ea5e9", emoji:"🏃", description:"Saute les obstacles et cours jusqu'à ton meilleur score.", difficulty:"Difficile" },
+  { id:"rocket-run", title:"Rocket Run", creator:"@leo", category:"Runner", plays:187200, likes:24900, color:"#f97316", emoji:"🚀", description:"Évite les météores et collecte les étoiles.", difficulty:"Moyen" },
+  { id:"quick-math", title:"Quick Math", creator:"@emma", category:"Puzzle", plays:87400, likes:10800, color:"#14b8a6", emoji:"➗", description:"Résous le calcul avant que le compteur tombe à zéro.", difficulty:"Difficile" },
 ];
+const categories = ["Pour toi","Tendance","Nouveaux","Arcade","Réflexe","Puzzle","Sport","Runner","Classique"];
 
-const categories = ["Tous", "Gaming", "Musique", "Programmation", "Technologie", "Éducation", "Voyage"];
+function formatCount(n:number){ if(n>=1_000_000)return (n/1_000_000).toFixed(1).replace(".0","")+" M"; if(n>=1000)return (n/1000).toFixed(n>=10000?0:1).replace(".0","")+" k"; return String(n); }
+function usePersistent<T>(key:string, initial:T){ const [value,setValue]=useState<T>(initial); useEffect(()=>{try{const raw=localStorage.getItem(key);if(raw)setValue(JSON.parse(raw))}catch{}},[key]); useEffect(()=>{try{localStorage.setItem(key,JSON.stringify(value))}catch{}},[key,value]); return [value,setValue] as const; }
+function GameShell({children,color}:{children:React.ReactNode;color:string}){ return <div className="game-stage" style={{background:"radial-gradient(circle at 50% 25%, "+color+"66, transparent 48%), linear-gradient(145deg,#111827,#050507)"}}>{children}</div>; }
 
-function Thumbnail({ video }: { video: Video }) {
-  return (
-    <div className="yt-thumb" style={{ background: `linear-gradient(135deg, ${video.color}, #101114)` }}>
-      <div className="yt-thumb-glow" />
-      <span className="yt-thumb-emoji">{video.emoji}</span>
-      <span className="yt-duration">{video.duration}</span>
-    </div>
-  );
+function TapFrenzy({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); const [time,setTime]=useState(10); const [x,setX]=useState(50); const [y,setY]=useState(50); const started=useRef(false); useEffect(()=>{if(!started.current)return;const id=setInterval(()=>setTime(t=>{if(t<=1){clearInterval(id);onScore(score);return 0}return t-1}),1000);return()=>clearInterval(id)},[started.current]); return <GameShell color="#8b5cf6"><div className="game-hud"><b>{score}</b><span>{time}s</span></div><button className="target" style={{left:x+"%",top:y+"%"}} onClick={()=>{if(!started.current){started.current=true;setTime(9)}setScore(s=>s+1);setX(12+Math.random()*76);setY(20+Math.random()*62)}}>TAP</button><p className="game-tip">Tape la cible le plus vite possible</p></GameShell>; }
+function StackGame({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); const [pos,setPos]=useState(15); const [dir,setDir]=useState(1); useEffect(()=>{const id=setInterval(()=>setPos(p=>{let n=p+dir*3;if(n>82){setDir(-1);n=82}if(n<15){setDir(1);n=15}return n}),60);return()=>clearInterval(id)},[dir]); return <GameShell color="#ff6b6b"><div className="game-hud"><b>{score} blocs</b><span>BEST {Math.max(score,12)}</span></div><div className="stack-area"><div className="stack-base"/><div className="moving-block" style={{left:pos+"%"}}/></div><button className="game-main-btn" onClick={()=>{setScore(s=>s+1);onScore(score+1)}}>POSER</button><p className="game-tip">Tape au bon moment</p></GameShell>; }
+function ColorRush({onScore}:{onScore:(n:number)=>void}){ const colors=["ROUGE","BLEU","VERT","JAUNE"]; const [word,setWord]=useState(colors[0]); const [score,setScore]=useState(0); const next=()=>{const n=colors[Math.floor(Math.random()*colors.length)];setWord(n);setScore(s=>s+1);onScore(score+1)}; return <GameShell color="#f59e0b"><div className="game-hud"><b>{score}</b><span>COLOR RUSH</span></div><div className="color-word">{word}</div><div className="choice-row">{colors.map(c=><button key={c} onClick={next} className="choice" style={{background:c==="ROUGE"?"#ef4444":c==="BLEU"?"#3b82f6":c==="VERT"?"#22c55e":"#eab308"}}>{c}</button>)}</div></GameShell>; }
+function GoalMachine({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); const [message,setMessage]=useState("Tire !"); const shoot=()=>{const ok=Math.random()>.25;setMessage(ok?"BUT ! 🔥":"ARRÊT 🧤");const n=score+(ok?1:0);setScore(n);onScore(n)}; return <GameShell color="#22c55e"><div className="game-hud"><b>{score} buts</b><span>⚽ 30s</span></div><div className="goal"><div className="keeper">🧤</div><div className="ball">⚽</div></div><button className="game-main-btn" onClick={shoot}>TIRER</button><p className="game-tip">{message}</p></GameShell>; }
+function MemoryGame({onScore}:{onScore:(n:number)=>void}){ const [cards]=useState(["🍕","🚀","🐸","⚽","🍕","🚀","🐸","⚽"].sort(()=>Math.random()-.5)); const [open,setOpen]=useState<number[]>([]); const [found,setFound]=useState<number[]>([]); const tap=(i:number)=>{if(open.includes(i)||found.includes(i)||open.length===2)return;const next=[...open,i];setOpen(next);if(next.length===2){if(cards[next[0]]===cards[next[1]]){setFound(f=>[...f,...next]);onScore(found.length+2)}setTimeout(()=>setOpen([]),450)}}; return <GameShell color="#ec4899"><div className="game-hud"><b>{found.length/2}/4</b><span>MEMORY</span></div><div className="memory-grid">{cards.map((c,i)=><button key={i} className={"memory-card "+(open.includes(i)||found.includes(i)?"open":"")} onClick={()=>tap(i)}>{open.includes(i)||found.includes(i)?c:"?"}</button>)}</div></GameShell>; }
+function QuickMath({onScore}:{onScore:(n:number)=>void}){ const [a]=useState(()=>Math.floor(Math.random()*9)+2); const [b]=useState(()=>Math.floor(Math.random()*9)+2); const [score,setScore]=useState(0); const [input,setInput]=useState(""); const submit=()=>{if(Number(input)===a+b){setScore(s=>s+1);onScore(score+1);setInput("")}else setInput("")}; return <GameShell color="#14b8a6"><div className="game-hud"><b>{score}</b><span>QUICK MATH</span></div><div className="math-question">{a} + {b} = ?</div><input autoFocus className="math-input" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} inputMode="numeric"/><button className="game-main-btn" onClick={submit}>VALIDER</button></GameShell>; }
+function FlappyGame({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); const [y,setY]=useState(50); const [playing,setPlaying]=useState(false); useEffect(()=>{if(!playing)return;const id=setInterval(()=>setY(v=>Math.min(82,v+4)),100);return()=>clearInterval(id)},[playing]); return <GameShell color="#38bdf8"><div className="game-hud"><b>{score}</b><span>⭐ FLAPPY</span></div><div className="flappy-world"><div className="bird" style={{top:y+"%"}}>⭐</div><div className="pipe p1"/><div className="pipe p2"/></div><button className="game-main-btn" onClick={()=>{setPlaying(true);setY(v=>Math.max(10,v-14));setScore(s=>s+1);onScore(score+1)}}>TAPER POUR VOLER</button></GameShell>; }
+function NeonDash({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); const [jump,setJump]=useState(false); return <GameShell color="#6d5dfc"><div className="game-hud"><b>{score} m</b><span>NEON DASH</span></div><div className="dash-world"><div className={"runner "+(jump?"jump":"")}>🟦</div><div className="obstacle">🔺</div></div><button className="game-main-btn" onClick={()=>{setJump(true);setScore(s=>s+10);onScore(score+10);setTimeout(()=>setJump(false),350)}}>SAUTER</button><p className="game-tip">Évite les triangles</p></GameShell>; }
+function BrickBlast({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); const [broken,setBroken]=useState<number[]>([]); return <GameShell color="#ef4444"><div className="game-hud"><b>{score}</b><span>BRICK BLAST</span></div><div className="bricks">{Array.from({length:12},(_,i)=><button key={i} className={"brick "+(broken.includes(i)?"broken":"")} onClick={()=>{if(!broken.includes(i)){setBroken(b=>[...b,i]);setScore(s=>s+10);onScore(score+10)}}}>▰</button>)}</div><p className="game-tip">Détruis toutes les briques</p></GameShell>; }
+function SnakeGame({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); const [food,setFood]=useState(4); const eat=()=>{setScore(s=>s+10);onScore(score+10);setFood(Math.floor(Math.random()*20))}; return <GameShell color="#10b981"><div className="game-hud"><b>{score}</b><span>🐍 SNAKE ZONE</span></div><div className="snake-board">{Array.from({length:25},(_,i)=><button key={i} className={"snake-cell "+(i===food?"food":"")} onClick={i===food?eat:undefined}>{i===food?"🍎":""}</button>)}</div><p className="game-tip">Attrape la pomme</p></GameShell>; }
+function JumpCity({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); const [jump,setJump]=useState(false); return <GameShell color="#0ea5e9"><div className="game-hud"><b>{score} m</b><span>🏃 RUN</span></div><div className="jump-city"><span className={"runner-person "+(jump?"jump":"")}>🏃</span><span className="city-obstacle">🚧</span></div><button className="game-main-btn" onClick={()=>{setJump(true);setScore(s=>s+25);onScore(score+25);setTimeout(()=>setJump(false),500)}}>SAUT</button></GameShell>; }
+function RocketRun({onScore}:{onScore:(n:number)=>void}){ const [score,setScore]=useState(0); return <GameShell color="#f97316"><div className="game-hud"><b>{score}</b><span>🚀 ROCKET RUN</span></div><div className="rocket-field"><button onClick={()=>{setScore(s=>s+1);onScore(score+1)}}>🚀</button><span>☄️</span><span>⭐</span><span>☄️</span></div><p className="game-tip">Collecte les étoiles</p></GameShell>; }
+
+function MiniGame({game,onScore}:{game:Game;onScore:(score:number)=>void}){
+  if(game.id==="neon-dash")return <NeonDash onScore={onScore}/>;
+  if(game.id==="stack-it")return <StackGame onScore={onScore}/>;
+  if(game.id==="flappy-star")return <FlappyGame onScore={onScore}/>;
+  if(game.id==="color-rush")return <ColorRush onScore={onScore}/>;
+  if(game.id==="goal-machine")return <GoalMachine onScore={onScore}/>;
+  if(game.id==="memory-flip")return <MemoryGame onScore={onScore}/>;
+  if(game.id==="brick-blast")return <BrickBlast onScore={onScore}/>;
+  if(game.id==="snake-zone")return <SnakeGame onScore={onScore}/>;
+  if(game.id==="tap-frenzy")return <TapFrenzy onScore={onScore}/>;
+  if(game.id==="jump-city")return <JumpCity onScore={onScore}/>;
+  if(game.id==="rocket-run")return <RocketRun onScore={onScore}/>;
+  return <QuickMath onScore={onScore}/>;
 }
 
-export default function Page() {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("Tous");
-  const [sidebar, setSidebar] = useState(true);
-  const [selected, setSelected] = useState<Video | null>(null);
-  const [subscribed, setSubscribed] = useState<string[]>([]);
-  const [liked, setLiked] = useState<number[]>([]);
-
-  const filtered = useMemo(() => videos.filter((video) => {
-    const matchesQuery = `${video.title} ${video.channel}`.toLowerCase().includes(query.toLowerCase());
-    const matchesCategory = category === "Tous" || video.category === category;
-    return matchesQuery && matchesCategory;
-  }), [query, category]);
-
-  const toggleSubscribe = (channel: string) => {
-    setSubscribed((current) => current.includes(channel) ? current.filter((x) => x !== channel) : [...current, channel]);
-  };
-
-  return (
-    <main className="yt-app">
-      <header className="yt-header">
-        <div className="yt-header-left">
-          <button className="yt-icon-btn" onClick={() => setSidebar(!sidebar)} aria-label="Menu">☰</button>
-          <button className="yt-logo" onClick={() => { setCategory("Tous"); setQuery(""); }}>
-            <span className="yt-logo-mark">▶</span>
-            <strong>UnoTube</strong>
-          </button>
-        </div>
-
-        <div className="yt-search">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher" />
-          <button aria-label="Rechercher">⌕</button>
-        </div>
-
-        <div className="yt-header-right">
-          <button className="yt-icon-btn" aria-label="Créer">＋</button>
-          <button className="yt-icon-btn" aria-label="Notifications">🔔</button>
-          <div className="yt-avatar">R</div>
-        </div>
-      </header>
-
-      <div className="yt-layout">
-        <aside className={`yt-sidebar ${sidebar ? "" : "collapsed"}`}>
-          <button className="yt-side-item active" onClick={() => setCategory("Tous")}><span>⌂</span><b>Accueil</b></button>
-          <button className="yt-side-item" onClick={() => setCategory("Tous")}><span>▣</span><b>Shorts</b></button>
-          <button className="yt-side-item" onClick={() => setCategory("Tous")}><span>▤</span><b>Abonnements</b></button>
-          <div className="yt-divider" />
-          <div className="yt-side-title">Vous</div>
-          <button className="yt-side-item"><span>◷</span><b>Historique</b></button>
-          <button className="yt-side-item"><span>▱</span><b>Playlists</b></button>
-          <button className="yt-side-item"><span>♡</span><b>Vidéos "J'aime"</b></button>
-          <div className="yt-divider" />
-          <div className="yt-side-title">Explorer</div>
-          {["Tendances", "Musique", "Films et TV", "Direct"].map((item) => (
-            <button key={item} className="yt-side-item"><span>•</span><b>{item}</b></button>
-          ))}
+export default function Page(){
+  const [tab,setTab]=useState("Pour toi"),[query,setQuery]=useState(""),[active,setActive]=useState(0);
+  const [liked,setLiked]=usePersistent<string[]>("scrollgame-likes",[]),[saved,setSaved]=usePersistent<string[]>("scrollgame-saved",[]);
+  const [followed,setFollowed]=usePersistent<string[]>("scrollgame-followed",[]),[scores,setScores]=usePersistent<Record<string,number>>("scrollgame-scores",{});
+  const [comments,setComments]=usePersistent<Record<string,string[]>>("scrollgame-comments",{}),[commentOpen,setCommentOpen]=useState<string|null>(null);
+  const [comment,setComment]=useState(""),[profileOpen,setProfileOpen]=useState(false); const feedRef=useRef<HTMLDivElement>(null);
+  const filtered=useMemo(()=>{let list=[...GAMES];if(tab==="Tendance")list.sort((a,b)=>b.likes-a.likes);else if(tab==="Nouveaux")list.reverse();else if(tab!=="Pour toi")list=list.filter(g=>g.category===tab);if(query.trim())list=list.filter(g=>(g.title+" "+g.creator+" "+g.category).toLowerCase().includes(query.toLowerCase()));return list},[tab,query]);
+  useEffect(()=>{const root=feedRef.current;if(!root)return;const obs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)setActive(Number((e.target as HTMLElement).dataset.index))}),{root,threshold:.65});root.querySelectorAll(".game-card").forEach(el=>obs.observe(el));return()=>obs.disconnect()},[filtered]);
+  const scrollTo=(i:number)=>{const el=feedRef.current?.querySelector('[data-index="'+i+'"]');el?.scrollIntoView({behavior:"smooth"})};
+  const toggle=(arr:string[],id:string,set:(v:string[])=>void)=>set(arr.includes(id)?arr.filter(x=>x!==id):[...arr,id]);
+  const addScore=(id:string,n:number)=>setScores(s=>({...s,[id]:Math.max(s[id]||0,n)}));
+  return <main className="scroll-app">
+    <header className="sg-topbar"><button className="brand" onClick={()=>{setTab("Pour toi");setQuery("")}}><span>SCROLL</span><b>GAME</b></button><div className="search-box"><span>⌕</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Chercher un jeu..."/></div><div className="top-actions"><button onClick={()=>setProfileOpen(true)}>♙</button><button onClick={()=>setProfileOpen(true)} className="avatar">R</button></div></header>
+    <nav className="sg-tabs">{categories.map(c=><button key={c} className={tab===c?"active":""} onClick={()=>setTab(c)}>{c}</button>)}</nav>
+    <section className="feed" ref={feedRef}>
+      {filtered.map((game,i)=><article className="game-card" data-index={i} key={game.id}>
+        <MiniGame game={game} onScore={n=>addScore(game.id,n)}/>
+        <div className="game-info"><div className="game-title-row"><div className="creator-avatar">{game.creator[1]?.toUpperCase()}</div><div><h1>{game.title}</h1><p>{game.creator} · {formatCount(game.plays)} parties</p></div></div><p className="game-description">{game.description}</p><div className="tags"><span>#{game.category}</span><span>⚡ {game.difficulty}</span><span>🏆 Best {scores[game.id]||0}</span></div></div>
+        <aside className="game-actions">
+          <button className={liked.includes(game.id)?"action active":"action"} onClick={()=>toggle(liked,game.id,setLiked)}><span>♥</span><b>{formatCount(game.likes+(liked.includes(game.id)?1:0))}</b></button>
+          <button className="action" onClick={()=>setCommentOpen(game.id)}><span>💬</span><b>{comments[game.id]?.length||0}</b></button>
+          <button className={saved.includes(game.id)?"action active":"action"} onClick={()=>toggle(saved,game.id,setSaved)}><span>🔖</span><b>{saved.includes(game.id)?"Sauvé":"Sauver"}</b></button>
+          <button className={followed.includes(game.creator)?"action active":"action"} onClick={()=>toggle(followed,game.creator,setFollowed)}><span>＋</span><b>{followed.includes(game.creator)?"Suivi":"Suivre"}</b></button>
+          <button className="action" onClick={()=>navigator.clipboard?.writeText(location.href+"?game="+game.id)}><span>↗</span><b>Partager</b></button>
         </aside>
-
-        <section className={`yt-content ${sidebar ? "" : "wide"}`}>
-          <div className="yt-chips">
-            {categories.map((item) => (
-              <button key={item} className={category === item ? "selected" : ""} onClick={() => setCategory(item)}>
-                {item}
-              </button>
-            ))}
-          </div>
-
-          <div className="yt-grid">
-            {filtered.map((video) => (
-              <article className="yt-card" key={video.id} onClick={() => setSelected(video)}>
-                <Thumbnail video={video} />
-                <div className="yt-card-info">
-                  <div className="yt-channel-avatar">{video.channel.slice(0, 1)}</div>
-                  <div className="yt-card-copy">
-                    <h2>{video.title}</h2>
-                    <p>{video.channel} ✓</p>
-                    <p>{video.views} vues • {video.age}</p>
-                  </div>
-                  <button className="yt-more" onClick={(e) => e.stopPropagation()}>⋮</button>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          {filtered.length === 0 && (
-            <div className="yt-empty">
-              <div>⌕</div>
-              <h2>Aucune vidéo trouvée</h2>
-              <p>Essaie une autre recherche ou une autre catégorie.</p>
-            </div>
-          )}
-        </section>
-      </div>
-
-      {selected && (
-        <div className="yt-modal-backdrop" onClick={() => setSelected(null)}>
-          <div className="yt-watch" onClick={(e) => e.stopPropagation()}>
-            <button className="yt-close" onClick={() => setSelected(null)}>×</button>
-            <div className="yt-watch-video" style={{ background: `linear-gradient(135deg, ${selected.color}, #08090b)` }}>
-              <span>{selected.emoji}</span>
-              <button className="yt-play">▶</button>
-              <small>{selected.duration}</small>
-            </div>
-            <div className="yt-watch-body">
-              <h1>{selected.title}</h1>
-              <div className="yt-watch-meta">
-                <div className="yt-channel-avatar large">{selected.channel.slice(0, 1)}</div>
-                <div><b>{selected.channel}</b><span>1,24 M abonnés</span></div>
-                <button className={`yt-subscribe ${subscribed.includes(selected.channel) ? "subscribed" : ""}`} onClick={() => toggleSubscribe(selected.channel)}>
-                  {subscribed.includes(selected.channel) ? "Abonné" : "S'abonner"}
-                </button>
-              </div>
-              <div className="yt-actions">
-                <button onClick={() => setLiked((x) => x.includes(selected.id) ? x.filter((id) => id !== selected.id) : [...x, selected.id])}>
-                  {liked.includes(selected.id) ? "👍 Aimé" : "👍 J'aime"}
-                </button>
-                <button>↗ Partager</button>
-                <button>⋯ Plus</button>
-              </div>
-              <div className="yt-description">
-                <b>{selected.views} vues • {selected.age}</b>
-                <p>Bienvenue sur UnoTube ! Cette vidéo est une démonstration de l'interface. Les vidéos affichées ici sont des contenus de démonstration.</p>
-              </div>
-              <div className="yt-comments"><b>Commentaires</b><span>💬 1,2 k</span></div>
-            </div>
-          </div>
-        </div>
-      )}
-    </main>
-  );
+      </article>)}
+      {!filtered.length&&<div className="no-results"><div>🎮</div><h2>Aucun jeu trouvé</h2><p>Essaie un autre mot-clé.</p></div>}
+    </section>
+    <div className="feed-nav"><button onClick={()=>scrollTo(Math.max(0,active-1))}>↑</button><span>{Math.min(active+1,filtered.length)} / {filtered.length}</span><button onClick={()=>scrollTo(Math.min(filtered.length-1,active+1))}>↓</button></div>
+    {commentOpen&&<div className="overlay" onClick={()=>setCommentOpen(null)}><div className="panel comments-panel" onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setCommentOpen(null)}>×</button><h2>Commentaires</h2><div className="comments-list">{(comments[commentOpen]||[]).map((c,i)=><p key={i}><b>@joueur</b>{c}</p>)}{!(comments[commentOpen]||[]).length&&<p className="muted">Sois le premier à commenter.</p>}</div><form onSubmit={e=>{e.preventDefault();if(!comment.trim())return;setComments(c=>({...c,[commentOpen]:[...(c[commentOpen]||[]),comment.trim()]}));setComment("")}}><input value={comment} onChange={e=>setComment(e.target.value)} placeholder="Ajouter un commentaire..."/><button>Publier</button></form></div></div>}
+    {profileOpen&&<div className="overlay" onClick={()=>setProfileOpen(false)}><div className="panel profile-panel" onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setProfileOpen(false)}>×</button><div className="big-avatar">R</div><h2>Ton profil</h2><p className="muted">Joueur Scroll Game</p><div className="profile-stats"><div><b>{liked.length}</b><span>Likes</span></div><div><b>{saved.length}</b><span>Sauvés</span></div><div><b>{Object.keys(scores).length}</b><span>Jeux joués</span></div></div><button className="primary">⚙️ Paramètres</button></div></div>}
+  </main>;
 }
