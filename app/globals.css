@@ -200,3 +200,36 @@ body {
 .arcade-card button:active{transform:scale(.96);box-shadow:0 5px 18px #0008}
 .profile-mini{width:38px;height:38px;border-radius:50%;border:1px solid #ffffff22;background:#ffffff12;color:#fff}
 @media(max-width:760px){.arcade-card{padding:22px 18px;border-radius:20px}.arcade-big{width:60px;height:60px}.arcade-live{top:112px;right:10px;font-size:9px}.profile-mini{width:36px;height:36px}}
+
+
+/* Mobile-first safe zones + premium arcade motion */
+.arcade-shell{isolation:isolate}
+.arcade-shell canvas{touch-action:none;user-select:none;-webkit-user-select:none}
+.arcade-overlay{animation:arcadeIn .28s ease both}
+.arcade-card{animation:arcadeCardIn .4s cubic-bezier(.2,.9,.2,1) both}
+.arcade-card button{min-height:48px;min-width:150px}
+@keyframes arcadeIn{from{opacity:0}to{opacity:1}}
+@keyframes arcadeCardIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+.short-bottom{background:linear-gradient(90deg,#000b,#0005 78%,transparent);padding:12px 14px;border-radius:16px;backdrop-filter:blur(8px)}
+.short-actions{filter:drop-shadow(0 5px 14px #000)}
+.short-actions button>span{transition:transform .18s cubic-bezier(.2,.9,.2,1),background .18s}
+.short-actions button:active>span{transform:scale(.84)}
+.shorts-categories{padding-bottom:7px}
+@media(max-width:760px){
+ .short-card{padding-bottom:54px}
+ .short-player{inset:0 0 54px}
+ .short-bottom{left:8px;bottom:66px;width:calc(100% - 88px);max-height:150px;overflow:hidden;padding:9px 10px}
+ .short-bottom h1{font-size:16px;line-height:1.15}
+ .short-bottom p{font-size:11px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+ .short-creator{margin-bottom:6px}
+ .creator-avatar{width:34px;height:34px}
+ .creator-name{font-size:12px}
+ .creator-meta{font-size:9px}
+ .follow-btn{font-size:9px;padding:6px 8px}
+ .short-actions{right:4px;bottom:70px;gap:7px}
+ .short-actions button{min-width:48px}
+ .short-actions button>span{width:42px;height:42px;font-size:22px}
+ .short-actions small{font-size:8px}
+ .player-top{top:102px}
+ .arcade-live{top:102px;right:8px}
+}
