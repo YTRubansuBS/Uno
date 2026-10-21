@@ -44,3 +44,63 @@ html, body { width: 100%; min-height: 100%; overflow: hidden; }
   .game-feed { height: 100svh; overflow-y: auto; touch-action: pan-y; }
   .game-card { height: 100svh; min-height: 100svh; }
 }
+
+
+/* FINAL SCROLL FIX — YouTube-style free vertical feed */
+html, body {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+.scroll-app {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+.scroll-app > .feed {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100svh;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y;
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+  scrollbar-width: none;
+  z-index: 1;
+}
+
+.scroll-app > .feed::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-app > .feed .game-card {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100svh;
+  min-height: 100svh;
+  margin: 0;
+  scroll-snap-align: none;
+}
+
+.scroll-app > .sg-topbar,
+.scroll-app > .sg-tabs,
+.scroll-app > .feed-nav {
+  z-index: 100;
+}
