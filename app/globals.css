@@ -233,3 +233,14 @@ body {
  .player-top{top:102px}
  .arcade-live{top:102px;right:8px}
 }
+
+
+/* Games-only fullscreen feed */
+html,body{margin:0!important;padding:0!important;background:#000!important;overflow:hidden!important}
+.games-only{position:fixed;inset:0;background:#000;overflow:hidden}
+.games-feed{height:100svh;width:100%;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.games-feed::-webkit-scrollbar{display:none}
+.game-page{position:relative;width:100%;height:100svh;min-height:100svh;scroll-snap-align:start;scroll-snap-stop:always;background:#000;overflow:hidden}
+.game-page .arcade-shell{position:absolute;inset:0;width:100%;height:100%}
+.game-page .arcade-shell canvas{width:100%;height:100%}
+.arcade-overlay,.arcade-live{display:none!important}
