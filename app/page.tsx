@@ -8,7 +8,7 @@ const GAMES:Game[]=[
 {id:"flappy-bird",color:"#38bdf8"},{id:"tetris",color:"#8b5cf6"},{id:"pong",color:"#22c55e"},{id:"snake",color:"#10b981"},
 {id:"2048",color:"#f59e0b"},{id:"minesweeper",color:"#64748b"},{id:"doodle-jump",color:"#06b6d4"},{id:"aim-trainer",color:"#ef4444"},
 {id:"helicopter",color:"#eab308"},{id:"memory",color:"#ec4899"},{id:"reaction-time",color:"#14b8a6"},{id:"breakout",color:"#f97316"},
-{id:"endless-racer",color:"#dc2626"},{id:"rps",color:"#6366f1"},{id:"connect-five",color:"#2563eb"},{id:"pinball",color:"#a855f7"}
+{id:"endless-racer",color:"#dc2626"},{id:"rps",color:"#6366f1"},{id:"connect-five",color:"#2563eb"},{id:"pinball",color:"#a855f7"},{id:"tower-stack",color:"#f43f5e"},{id:"perfect-timing",color:"#22d3ee"},{id:"coin-rush",color:"#fbbf24"},{id:"target-rush",color:"#fb7185"},{id:"sequence",color:"#818cf8"},{id:"orbit-dodge",color:"#a78bfa"},{id:"color-switch",color:"#34d399"}
 ];
 
 export default function Page(){
