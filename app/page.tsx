@@ -26,7 +26,8 @@ const GAMES: Game[] = [
   { id:"connect-four", title:"Connect Four", creator:"@board", category:"1v1", plays:388000, likes:53000, color:"#2563eb", emoji:"🟡", description:"Aligne quatre pions avant ton adversaire.", difficulty:"Moyen" },
   { id:"pinball", title:"Pinball", creator:"@arcade", category:"Arcade", plays:619000, likes:91000, color:"#a855f7", emoji:"🌈", description:"Garde la bille en jeu et fais le meilleur score possible.", difficulty:"Moyen" },
 ];
-const categories = ["Pour toi","Tendance","Nouveaux","Arcade","Réflexe","Puzzle","Sport","Runner","Classique"];\nconst CATS = categories;
+const categories = ["Pour toi","Tendance","Nouveaux","Arcade","Réflexe","Puzzle","Sport","Runner","Classique"];
+const CATS = categories;
 
 function formatCount(n:number){ if(n>=1_000_000)return (n/1_000_000).toFixed(1).replace(".0","")+" M"; if(n>=1000)return (n/1000).toFixed(n>=10000?0:1).replace(".0","")+" k"; return String(n); }
 function usePersistent<T>(key:string, initial:T){ const [value,setValue]=useState<T>(initial); useEffect(()=>{try{const raw=localStorage.getItem(key);if(raw)setValue(JSON.parse(raw))}catch{}},[key]); useEffect(()=>{try{localStorage.setItem(key,JSON.stringify(value))}catch{}},[key,value]); return [value,setValue] as const; }
