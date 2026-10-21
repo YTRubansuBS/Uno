@@ -26,7 +26,7 @@ const GAMES: Game[] = [
   { id:"connect-four", title:"Connect Four", creator:"@board", category:"1v1", plays:388000, likes:53000, color:"#2563eb", emoji:"🟡", description:"Aligne quatre pions avant ton adversaire.", difficulty:"Moyen" },
   { id:"pinball", title:"Pinball", creator:"@arcade", category:"Arcade", plays:619000, likes:91000, color:"#a855f7", emoji:"🌈", description:"Garde la bille en jeu et fais le meilleur score possible.", difficulty:"Moyen" },
 ];
-const categories = ["Pour toi","Tendance","Nouveaux","Arcade","Réflexe","Puzzle","Sport","Runner","Classique"];
+const categories = ["Pour toi","Tendance","Nouveaux","Arcade","Réflexe","Puzzle","Sport","Runner","Classique"];\nconst CATS = categories;
 
 function formatCount(n:number){ if(n>=1_000_000)return (n/1_000_000).toFixed(1).replace(".0","")+" M"; if(n>=1000)return (n/1000).toFixed(n>=10000?0:1).replace(".0","")+" k"; return String(n); }
 function usePersistent<T>(key:string, initial:T){ const [value,setValue]=useState<T>(initial); useEffect(()=>{try{const raw=localStorage.getItem(key);if(raw)setValue(JSON.parse(raw))}catch{}},[key]); useEffect(()=>{try{localStorage.setItem(key,JSON.stringify(value))}catch{}},[key,value]); return [value,setValue] as const; }
@@ -68,9 +68,9 @@ export default function Page(){
   const feed=useRef<HTMLElement>(null);
   const [cat,setCat]=useState("Pour toi");
   const [q,setQ]=useState("");
-  const [liked,setLiked]=persist<string[]>("sg-liked",[]);
-  const [saved,setSaved]=persist<string[]>("sg-saved",[]);
-  const [scores,setScores]=persist<Record<string,number>>("sg-scores",{});
+  const [liked,setLiked]=usePersistent<string[]>("sg-liked",[]);
+  const [saved,setSaved]=usePersistent<string[]>("sg-saved",[]);
+  const [scores,setScores]=usePersistent<Record<string,number>>("sg-scores",{});
   const [profile,setProfile]=useState(false);
   const [comments,setComments]=useState<string[]>([]);
   const [commentsOpen,setCommentsOpen]=useState(false);
@@ -121,7 +121,7 @@ export default function Page(){
     <section className="shorts-feed" ref={feed}>
       {games.map(g=><article className="short-card" key={g.id} id={g.id}>
         <div className="short-player">
-          <MiniGame g={g} onScore={n=>record(g.id,n)}/>
+          <MiniGame game={g} onScore={n=>record(g.id,n)}/>
           <div className="player-top">
             <span className="live-pill">JEU</span>
             <button className="player-icon" onClick={()=>setMuted(v=>!v)} aria-label={muted?"Activer le son":"Couper le son"}>{muted?"🔇":"🔊"}</button>
