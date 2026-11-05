@@ -124,7 +124,7 @@ export default function ArcadeGame({id,color,onScore}:Props){
  };
  const pointerDown=(e:PointerEvent)=>{const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,s=S.current;if(!alive.current){init();return}touch.current={x:e.clientX,y:e.clientY};
   if(id==="illegal-runner"){const now=performance.now();if(now-(s.lastTap||0)<260&&s.dash){s.dash=0;s.dashT=.28;s.inv=.35;pts(s,s.w/2,s.y,"#ff37c7",30)}else if(s.y>=s.ground-5)s.vy=-650;s.lastTap=now}
-  if(id==="tetris"){if(y<58&&x<100)holdT(s);else rotateT(s)}
+  if(id==="tetris"){if(y<58&&x<100)holdT(s);else if(Math.abs(e.clientX-(touch.current?.x??e.clientX))<12&&Math.abs(e.clientY-(touch.current?.y??e.clientY))<12)rotateT(s)}
   if(id==="breakout"){s.paddle=clamp(x,left(s)+48,right(s)-48);if(s.ball.stuck){s.ball.x=s.paddle;s.ball.stuck=false}}
   if(id==="2048"){const now=performance.now();if(now-(s.lastTap||0)<280&&s.history.length)undo2048(s);s.lastTap=now}
  };
@@ -132,7 +132,7 @@ export default function ArcadeGame({id,color,onScore}:Props){
  const pointerUp=(e:PointerEvent)=>{const p=touch.current;if(!p)return;touch.current=null;const dx=e.clientX-p.x,dy=e.clientY-p.y,s=S.current;if(!alive.current)return;
   if(id==="2048"&&Math.max(Math.abs(dx),Math.abs(dy))>28)move2048(s,Math.abs(dx)>Math.abs(dy)?(dx>0?2:0):(dy>0?3:1));
   if(id==="snake"&&Math.max(Math.abs(dx),Math.abs(dy))>25){const n=Math.abs(dx)>Math.abs(dy)?(dx>0?{x:1,y:0}:{x:-1,y:0}):(dy>0?{x:0,y:1}:{x:0,y:-1});if(!(n.x===-s.dir.x&&n.y===-s.dir.y)){s.queue.push(n);if(s.queue.length>2)s.queue.shift()}}
-  if(id==="tetris"&&dy>55&&Math.abs(dy)>Math.abs(dx)&&s.piece){while(!coll(s,s.piece.x,s.piece.y+1,s.piece.cells))s.piece.y++;s.lock=.5}
+  if(id==="tetris"&&s.piece){if(Math.abs(dx)>35&&Math.abs(dx)>Math.abs(dy)){const dir=dx>0?1:-1;if(!coll(s,s.piece.x+dir,s.piece.y,s.piece.cells))s.piece.x+=dir}else if(dy>35&&dy>Math.abs(dx)){while(!coll(s,s.piece.x,s.piece.y+1,s.piece.cells))s.piece.y++;s.lock=.5}}
  };
  const key=(e:KeyboardEvent)=>{const s=S.current;if(e.code==="Space"){e.preventDefault();if(id==="illegal-runner"&&s.y>=s.ground-5)s.vy=-650;if(id==="breakout"&&s.ball.stuck)s.ball.stuck=false}
   if(id==="tetris"&&s.piece){if(e.key==="c"||e.key==="C"){holdT(s);return}if(e.key==="ArrowLeft"&&!coll(s,s.piece.x-1,s.piece.y,s.piece.cells))s.piece.x--;if(e.key==="ArrowRight"&&!coll(s,s.piece.x+1,s.piece.y,s.piece.cells))s.piece.x++;if(e.key==="ArrowDown"&&!coll(s,s.piece.x,s.piece.y+1,s.piece.cells))s.piece.y++;if(e.key==="ArrowUp")rotateT(s);if(e.code==="Space"){while(!coll(s,s.piece.x,s.piece.y+1,s.piece.cells))s.piece.y++;s.lock=.5}}
