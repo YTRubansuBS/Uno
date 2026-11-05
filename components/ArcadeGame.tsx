@@ -5,7 +5,7 @@ const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 const rnd=(a:number,b:number)=>a+Math.random()*(b-a);
 const shuffle=<T,>(a:T[])=>[...a].sort(()=>Math.random()-.5);
 export default function ArcadeGame({id,color,onScore}:Props){
- const canvas=useRef<HTMLCanvasElement>(null);const S=useRef<any>({});const touch=useRef<{x:number;y:number}|null>(null);const alive=useRef(true);const best=useRef(0);const onScoreRef=useRef(onScore);
+ const canvas=useRef<HTMLCanvasElement>(null);const S=useRef<any>({});const touch=useRef<{x:number;y:number;hold?:boolean}|null>(null);const alive=useRef(true);const best=useRef(0);const onScoreRef=useRef(onScore);
  onScoreRef.current=onScore;
  useEffect(()=>{const c=canvas.current;if(!c)return;const ctx=c.getContext("2d");if(!ctx)return;let raf=0,last=performance.now();
   let dpr=1;
@@ -122,9 +122,9 @@ export default function ArcadeGame({id,color,onScore}:Props){
    if(s.bricks.every((b:any)=>!b.on)){s.level++;setScore(s,s.score+500);pts(s,s.w/2,s.h*.3,"#fff",35);makeBricks(s);s.ball={x:s.paddle,y:s.h*.72,vx:rnd(-230,230),vy:-330,stuck:true}}
   }
  };
- const pointerDown=(e:PointerEvent)=>{const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,s=S.current;if(!alive.current){init();return}touch.current={x:e.clientX,y:e.clientY};
+ const pointerDown=(e:PointerEvent)=>{const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,s=S.current;if(!alive.current){init();return}touch.current={x:e.clientX,y:e.clientY,hold:id==="tetris"&&y<58&&x<100};
   if(id==="illegal-runner"){const now=performance.now();if(now-(s.lastTap||0)<260&&s.dash){s.dash=0;s.dashT=.28;s.inv=.35;pts(s,s.w/2,s.y,"#ff37c7",30)}else if(s.y>=s.ground-5)s.vy=-650;s.lastTap=now}
-  if(id==="tetris"){if(y<58&&x<100)holdT(s);else if(Math.abs(e.clientX-(touch.current?.x??e.clientX))<12&&Math.abs(e.clientY-(touch.current?.y??e.clientY))<12)rotateT(s)}
+  if(id==="tetris"){if(y<58&&x<100)holdT(s)}
   if(id==="breakout"){s.paddle=clamp(x,left(s)+48,right(s)-48);if(s.ball.stuck){s.ball.x=s.paddle;s.ball.stuck=false}}
   if(id==="2048"){const now=performance.now();if(now-(s.lastTap||0)<280&&s.history.length)undo2048(s);s.lastTap=now}
  };
@@ -132,7 +132,7 @@ export default function ArcadeGame({id,color,onScore}:Props){
  const pointerUp=(e:PointerEvent)=>{const p=touch.current;if(!p)return;touch.current=null;const dx=e.clientX-p.x,dy=e.clientY-p.y,s=S.current;if(!alive.current)return;
   if(id==="2048"&&Math.max(Math.abs(dx),Math.abs(dy))>28)move2048(s,Math.abs(dx)>Math.abs(dy)?(dx>0?2:0):(dy>0?3:1));
   if(id==="snake"&&Math.max(Math.abs(dx),Math.abs(dy))>25){const n=Math.abs(dx)>Math.abs(dy)?(dx>0?{x:1,y:0}:{x:-1,y:0}):(dy>0?{x:0,y:1}:{x:0,y:-1});if(!(n.x===-s.dir.x&&n.y===-s.dir.y)){s.queue.push(n);if(s.queue.length>2)s.queue.shift()}}
-  if(id==="tetris"&&s.piece){if(Math.abs(dx)>35&&Math.abs(dx)>Math.abs(dy)){const dir=dx>0?1:-1;if(!coll(s,s.piece.x+dir,s.piece.y,s.piece.cells))s.piece.x+=dir}else if(dy>35&&dy>Math.abs(dx)){while(!coll(s,s.piece.x,s.piece.y+1,s.piece.cells))s.piece.y++;s.lock=.5}}
+  if(id==="tetris"&&s.piece){if(Math.abs(dx)>35&&Math.abs(dx)>Math.abs(dy)){const dir=dx>0?1:-1;if(!coll(s,s.piece.x+dir,s.piece.y,s.piece.cells))s.piece.x+=dir}else if(dy>35&&dy>Math.abs(dx)){while(!coll(s,s.piece.x,s.piece.y+1,s.piece.cells))s.piece.y++;s.lock=.5}else if(!p.hold&&Math.abs(dx)<12&&Math.abs(dy)<12)rotateT(s)}
  };
  const key=(e:KeyboardEvent)=>{const s=S.current;if(e.code==="Space"){e.preventDefault();if(id==="illegal-runner"&&s.y>=s.ground-5)s.vy=-650;if(id==="breakout"&&s.ball.stuck)s.ball.stuck=false}
   if(id==="tetris"&&s.piece){if(e.key==="c"||e.key==="C"){holdT(s);return}if(e.key==="ArrowLeft"&&!coll(s,s.piece.x-1,s.piece.y,s.piece.cells))s.piece.x--;if(e.key==="ArrowRight"&&!coll(s,s.piece.x+1,s.piece.y,s.piece.cells))s.piece.x++;if(e.key==="ArrowDown"&&!coll(s,s.piece.x,s.piece.y+1,s.piece.cells))s.piece.y++;if(e.key==="ArrowUp")rotateT(s);if(e.code==="Space"){while(!coll(s,s.piece.x,s.piece.y+1,s.piece.cells))s.piece.y++;s.lock=.5}}
