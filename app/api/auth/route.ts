@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authCookies, createGuest, getCurrentUser, loginAccount, registerAccount } from "@/lib/serverAuth";
+import { authCookies, createGuest, getCurrentUser, loginAccount, registerAccount, revokeCurrentSessions } from "@/lib/serverAuth";
 import { redisConfigured } from "@/lib/redis";
 
 export async function GET() {
@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     }
 
     if (action === "logout") {
+      await revokeCurrentSessions();
       const response = NextResponse.json({ ok: true });
       response.cookies.set(authCookies.SESSION_COOKIE, "", { expires: new Date(0), path: "/" });
       response.cookies.set(authCookies.GUEST_COOKIE, "", { expires: new Date(0), path: "/" });

@@ -9,6 +9,7 @@ type RedisAdapter = {
   get<T = unknown>(key: string): Promise<T | null>;
   set(key: string, value: unknown, options?: RedisOptions): Promise<string | null>;
   del(key: string): Promise<number>;
+  compareAndDelete(key: string, expectedValue: string): Promise<boolean>;
 };
 
 const redisUrl = process.env.STORAGE_REDIS_URL || process.env.REDIS_URL || "";
@@ -62,6 +63,13 @@ const adapter: RedisAdapter = {
 
   async del(key) {
     return (await getClient()).del(key);
+  },
+  async compareAndDelete(key, expectedValue) {
+    const result = await (await getClient()).eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      { keys: [key], arguments: [expectedValue] }
+    );
+    return Number(result) === 1;
   }
 };
 
@@ -75,4 +83,9 @@ export async function redisGet<T>(key: string): Promise<T | null> {
 export async function redisSet(key: string, value: unknown, options?: RedisOptions) {
   if (!redis) throw new Error("Redis n'est pas configuré.");
   return redis.set(key, value, options);
+}
+
+export async function redisCompareAndDelete(key: string, expectedValue: string) {
+  if (!redis) return false;
+  return redis.compareAndDelete(key, expectedValue);
 }

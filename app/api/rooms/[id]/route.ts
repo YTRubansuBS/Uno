@@ -72,11 +72,19 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       return NextResponse.json({ ok: true });
     }
 
+    const oldOrder = [...room.state.order];
+    const leavingIndex = oldOrder.indexOf(user.id);
+    const nextId = leavingIndex >= 0 && oldOrder.length > 1
+      ? oldOrder[(leavingIndex + room.state.direction + oldOrder.length) % oldOrder.length]
+      : null;
+
     room.players = room.players.filter((p) => p.id !== user.id);
     if (room.status === "playing") {
       room.state.order = room.players.map((p) => p.id);
       if (room.state.currentPlayerId === user.id) {
-        room.state.currentPlayerId = room.players[0]?.id ?? null;
+        room.state.currentPlayerId = nextId && room.players.some((p) => p.id === nextId)
+          ? nextId
+          : (room.players[0]?.id ?? null);
       }
       if (room.players.length < 2) {
         room.status = "finished";

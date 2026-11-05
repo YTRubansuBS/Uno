@@ -250,8 +250,19 @@ export default function UnoApp() {
   async function refreshRoom(roomId: string, silent = false) {
     try {
       const data = await apiJson<PublicRoom>("/api/rooms/" + roomId);
-      applyRoom(data);
+      const previousVersion = room?.state.version;
+      setRoom(data);
+      setView(data.status === "waiting" ? "room" : "remote");
+      if (previousVersion !== undefined && data.state.version !== previousVersion) setMovePending(false);
     } catch (error) {
+      if (roomId === room?.id && error instanceof Error && /Salon (fermé|introuvable)|plus dans ce salon/i.test(error.message)) {
+        setRoom(null);
+        setMovePending(false);
+        setRemoteWild(null);
+        setView("home");
+        if (!silent) tell(error.message, "error");
+        return;
+      }
       if (!silent) tell(error instanceof Error ? error.message : "Salon introuvable.", "error");
     }
   }
@@ -270,7 +281,8 @@ export default function UnoApp() {
   }
 
   async function submitAction(action: { type: "play" | "draw" | "uno"; cardId?: string; cardIds?: string[]; chosenColor?: Color }) {
-    if (!room || !user || !remoteTurn || movePending) return;
+    if (!room || !user || movePending) return;
+    if (action.type !== "uno" && !remoteTurn) return;
     setMovePending(true);
     try {
       const data = await apiJson<PublicRoom>("/api/rooms/" + room.id + "/action", {

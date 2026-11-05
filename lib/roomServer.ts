@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { RemoteGameState, UnoCard } from "@/lib/types";
-import { redis, redisGet, redisSet } from "@/lib/redis";
+import { redis, redisCompareAndDelete, redisGet, redisSet } from "@/lib/redis";
 
 export type RedisPlayer = {
   id: string;
@@ -97,5 +97,5 @@ export async function acquireRoomLock(roomId: string) {
 
 export async function releaseRoomLock(roomId: string, token: string | null) {
   if (!redis || !token) return;
-  await redis.del("uno:lock:" + roomId);
+  await redisCompareAndDelete("uno:lock:" + roomId, token);
 }

@@ -19,20 +19,20 @@ npm run dev
 Crée un fichier `.env.local` avec :
 
 ```env
-KV_REST_API_URL=...
-KV_REST_API_TOKEN=...
+STORAGE_REDIS_URL=redis://...
+# ou REDIS_URL=redis://...
 ```
 
 ## Vercel + Redis
 
 Dans Vercel, connecte le projet à **Upstash Redis** depuis le Marketplace. L'intégration crée les variables Redis pour le projet. Après l'ajout ou la modification des variables, redéploie le projet.
 
-Le jeu utilise ces variables, avec les noms Upstash classiques acceptés en local :
+Le jeu utilise une URL Redis classique côté serveur :
 
-- `KV_REST_API_URL`
-- `KV_REST_API_TOKEN`
-- `UPSTASH_REDIS_REST_URL`
-- `UPSTASH_REDIS_REST_TOKEN`
+- `STORAGE_REDIS_URL` (prioritaire)
+- `REDIS_URL` (fallback)
+
+Après toute modification des variables sur Vercel, redéploie le projet.
 
 ## Multijoueur
 

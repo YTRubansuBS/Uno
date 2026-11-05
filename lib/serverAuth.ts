@@ -62,12 +62,16 @@ export async function registerAccount(usernameInput: string, password: string) {
   if (username.length < 2) throw new Error("Le pseudo doit faire au moins 2 caractères.");
   if (password.length < 6) throw new Error("Le mot de passe doit faire au moins 6 caractères.");
 
-  if (await redisGet<unknown>(usernameKey(username))) throw new Error("Ce pseudo est déjà utilisé.");
-
   const id = "u_" + randomBytes(12).toString("hex");
   const user = { id, username, passwordHash: hashPassword(password) };
-  await redisSet(usernameKey(username), { id, username });
-  await redisSet(userKey(id), user);
+  const reserved = await redisSet(usernameKey(username), { id, username }, { nx: true });
+  if (reserved !== "OK") throw new Error("Ce pseudo est déjà utilisé.");
+  try {
+    await redisSet(userKey(id), user);
+  } catch (error) {
+    await redis.del(usernameKey(username));
+    throw error;
+  }
   return { id, username, kind: "account" as const };
 }
 
@@ -104,6 +108,15 @@ export async function getCurrentUser(): Promise<ServerUser | null> {
     if (user?.id) return user;
   }
   return null;
+}
+
+export async function revokeCurrentSessions() {
+  if (!redis) return;
+  const store = await cookies();
+  const session = store.get(SESSION_COOKIE)?.value;
+  const guest = store.get(GUEST_COOKIE)?.value;
+  if (session) await redis.del(sessionKey(session));
+  if (guest) await redis.del(guestKey(guest));
 }
 
 export const authCookies = {
