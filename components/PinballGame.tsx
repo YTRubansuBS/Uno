@@ -132,20 +132,6 @@ export default function PinballGame({ color, onScore }: Props) {
         },
       ];
 
-      const makeBall = (bonusBall = false): Ball => ({
-        x: b.r - 25,
-        y: b.b - 34,
-        vx: 0,
-        vy: 0,
-        r: clamp(w * 0.012, 8, 11),
-        active: true,
-        rail: "play",
-        railT: 0,
-        railKind: "right",
-        ballSave: 5.2,
-        bonusBall,
-      });
-
       return {
         w,
         h,
@@ -231,7 +217,19 @@ export default function PinballGame({ color, onScore }: Props) {
 
     const reset = () => {
       const s = makeBoard();
-      s.balls = [makeBall(false)];
+      s.balls = [{
+        x: s.b.r - 25,
+        y: s.b.b - 34,
+        vx: 0,
+        vy: 0,
+        r: clamp(s.w * 0.012, 8, 11),
+        active: true,
+        rail: "play",
+        railT: 0,
+        railKind: "right",
+        ballSave: 5.2,
+        bonusBall: false,
+      }];
       state.current = s;
     };
 
