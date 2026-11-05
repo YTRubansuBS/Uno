@@ -115,7 +115,7 @@ export default function PinballGame({color,onScore}:Props){
 
       for(const t of s.targets)if(!t.on){const x=clamp(ball.x,t.x,t.x+t.w),y=clamp(ball.y,t.y,t.y+t.h);if((ball.x-x)**2+(ball.y-y)**2<(ball.r+5)**2){t.on=true;ball.vy=Math.abs(ball.vy)+45;addScore(s,t.value,t.x+t.w/2,t.y,"#ffe66d");if(s.targets.every((z:any)=>z.on)){s.targets.forEach((z:any)=>z.on=false);addScore(s,750,(b.l+b.r)/2,b.t+120,"#ff57d8");pop(s,"TARGET JACKPOT!",(b.l+b.r)/2,b.t+145,"#ff57d8");burst(s,(b.l+b.r)/2,b.t+145,"#ff57d8",34,260)}}}
 
-      for(const q of s.bumpers){const dx=ball.x-q.x,dy=ball.y-q.y,d=Math.hypot(dx,dy),rr=ball.r+q.r;if(d<rr){const nx=d>.001?dx/d:0,ny=d>.001?dy/d:-1;ball.x=q.x+nx*rr;ball.y=q.y+ny*rr;const v=Math.min(880,Math.max(470,Math.hypot(ball.vx,ball.vy))+130);ball.vx=nx*v;ball.vy=ny*v;q.p=1;s.hit++;addScore(s,q.value,q.x,q.y,q.col)}}}
+      for(const q of s.bumpers){const dx=ball.x-q.x,dy=ball.y-q.y,d=Math.hypot(dx,dy),rr=ball.r+q.r;if(d<rr){const nx=d>.001?dx/d:0,ny=d>.001?dy/d:-1;ball.x=q.x+nx*rr;ball.y=q.y+ny*rr;const v=Math.min(880,Math.max(470,Math.hypot(ball.vx,ball.vy))+130);ball.vx=nx*v;ball.vy=ny*v;q.p=1;s.hit++;addScore(s,q.value,q.x,q.y,q.col)}}
       for(const f of s.flippers)hitFlipper(s,f);
       if(s.hit>0&&s.hit%16===0){s.hit++;addScore(s,250,b.l+45,b.t+45,"#65f7ff");pop(s,"HYPER BOUNCE",b.l+80,b.t+70,"#65f7ff");}
       if(ball.y>b.b+32){s.lives--;s.combo=0;s.mult=Math.max(1,s.mult-1);if(s.lives<=0){s.over=true;saveBest(s.score);burst(s,b.r-70,b.b-45,"#ff57d8",45,260)}else{s.launched=false;s.ball={x:b.r-24,y:b.b-34,vx:0,vy:0,r:ball.r};s.flash=.24}}
