@@ -8,6 +8,10 @@ export default function ArcadeGame({id,color,onScore}:Props){
  const canvas=useRef<HTMLCanvasElement>(null);const S=useRef<any>({});const touch=useRef<{x:number;y:number}|null>(null);const alive=useRef(true);const best=useRef(0);const onScoreRef=useRef(onScore);
  onScoreRef.current=onScore;
  useEffect(()=>{const c=canvas.current;if(!c)return;const ctx=c.getContext("2d");if(!ctx)return;let raf=0,last=performance.now();
+  let dpr=1;
+  const resizeCanvas=()=>{const rect=c.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);const w=Math.max(1,Math.floor(rect.width));const h=Math.max(1,Math.floor(rect.height));c.width=Math.floor(w*dpr);c.height=Math.floor(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);const current=S.current;if(current?.w){current.w=w;current.h=h;if(id==="illegal-runner"){current.ground=current.h*.76;current.y=Math.min(current.y,current.ground)}}};
+  resizeCanvas();
+  window.addEventListener("resize",resizeCanvas);
   try{best.current=Number(localStorage.getItem("sg-best-"+id))||0}catch{best.current=0}
  const saveBest=(s:any)=>{if(s.score>best.current){best.current=s.score;try{localStorage.setItem("sg-best-"+id,String(s.score))}catch{}}};
  const pts=(s:any,x:number,y:number,col:string,n=14)=>{for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=rnd(40,220);s.p.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.5,max:.5,size:rnd(2,5),col})}};
@@ -29,7 +33,7 @@ export default function ArcadeGame({id,color,onScore}:Props){
  const holdT=(s:any)=>{if(!s.piece||!s.canHold)return;const current=s.piece.type;if(s.hold===null){s.hold=current;s.piece=null;spawnT(s)}else{const swap=s.hold;s.hold=current;s.piece={type:swap,x:3,y:0,cells:pieces[swap]};s.lock=0;if(coll(s,s.piece.x,s.piece.y,s.piece.cells))end(s)}s.canHold=false;};
  const lockT=(s:any)=>{for(const p of s.piece.cells){const x=s.piece.x+p[0],y=s.piece.y+p[1];if(y>=0)s.board[y*10+x]=s.piece.type+1}let n=0;for(let y=19;y>=0;y--)if(s.board.slice(y*10,y*10+10).every(Boolean)){s.board.splice(y*10,10);s.board.unshift(...Array(10).fill(0));n++;y++}if(n){s.lines+=n;s.combo++;setScore(s,s.score+[0,100,300,500,800][n]*s.level+s.combo*25);pts(s,s.w/2,100,"#c4b5fd",n*12)}else s.combo=0;s.level=1+Math.floor(s.lines/10);s.piece=null;s.lock=0};
  const makeBricks=(s:any)=>{s.bricks=[];const rows=Math.min(9,5+s.level);for(let r=0;r<rows;r++)for(let x=0;x<8;x++){const active=s.level%3===1||((x+r)%2===0)||r===0;s.bricks.push({r,x,on:active,hp:r<2&&s.level>2?2:1})}};
- const init=()=>{const s:any={w:c.clientWidth,h:c.clientHeight,score:0,t:0,p:[],shake:0,over:false};
+ const init=()=>{const rect=c.getBoundingClientRect();const s:any={w:Math.max(1,Math.floor(rect.width)),h:Math.max(1,Math.floor(rect.height)),score:0,t:0,p:[],shake:0,over:false};
   if(id==="illegal-runner"){s.lane=1;s.y=s.h*.76;s.ground=s.h*.76;s.vy=0;s.speed=300;s.dist=0;s.coins=0;s.dash=1;s.dashT=0;s.inv=0;s.spawn=.55;s.obs=[];s.coinsArr=[];s.scroll=0}
   if(id==="tetris"){s.board=Array(200).fill(0);s.bag=[];s.piece=null;s.hold=null;s.canHold=true;s.next=[];s.drop=0;s.lock=0;s.lines=0;s.level=1;s.combo=0}
   if(id==="2048"){s.board=Array(16).fill(0);s.history=[];s.moves=0;s.combo=0;s.won=false;spawn2048(s);spawn2048(s)}
@@ -136,7 +140,7 @@ export default function ArcadeGame({id,color,onScore}:Props){
   if(id==="snake"){const n=e.key==="ArrowUp"?{x:0,y:-1}:e.key==="ArrowDown"?{x:0,y:1}:e.key==="ArrowLeft"?{x:-1,y:0}:e.key==="ArrowRight"?{x:1,y:0}:null;if(n&&!(n.x===-s.dir.x&&n.y===-s.dir.y)){s.queue.push(n);if(s.queue.length>2)s.queue.shift()}}
  };
  const loop=(now:number)=>{const dt=Math.min(.033,(now-last)/1000);last=now;update(dt);draw();raf=requestAnimationFrame(loop)};
- init();raf=requestAnimationFrame(loop);c.addEventListener("pointerdown",pointerDown);c.addEventListener("pointermove",pointerMove);c.addEventListener("pointerup",pointerUp);c.addEventListener("pointercancel",()=>{touch.current=null});window.addEventListener("keydown",key);return()=>{cancelAnimationFrame(raf);c.removeEventListener("pointerdown",pointerDown);c.removeEventListener("pointermove",pointerMove);c.removeEventListener("pointerup",pointerUp);window.removeEventListener("keydown",key)};
+ init();raf=requestAnimationFrame(loop);c.addEventListener("pointerdown",pointerDown);c.addEventListener("pointermove",pointerMove);c.addEventListener("pointerup",pointerUp);c.addEventListener("pointercancel",()=>{touch.current=null});window.addEventListener("keydown",key);return()=>{cancelAnimationFrame(raf);window.removeEventListener("resize",resizeCanvas);c.removeEventListener("pointerdown",pointerDown);c.removeEventListener("pointermove",pointerMove);c.removeEventListener("pointerup",pointerUp);window.removeEventListener("keydown",key)};
  },[id,color]);
  return <div className="arcade-shell"><canvas ref={canvas}/></div>;
 }
