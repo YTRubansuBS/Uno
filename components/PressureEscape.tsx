@@ -1,250 +1,145 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Props = { color: string; onScore?: (n: number) => void };
-
-type Challenge = {
-  kind: "PRESS" | "HOLD" | "RELEASE" | "WAIT" | "DONT";
-  label: string;
-  hint: string;
-  duration: number;
-};
+type Kind = "PRESS" | "HOLD" | "RELEASE" | "WAIT" | "DONT" | "COUNT" | "MEMORY" | "FOCUS";
+type Challenge = { kind: Kind; title: string; hint: string; duration: number; target?: number; window?: number; count?: number };
 
 const clamp = (n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 
-export default function PressureEscape({ color, onScore }: Props) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const scoreRef = useRef(onScore);
-  scoreRef.current = onScore;
+export default function PressureEscape({color,onScore}:Props){
+  const canvas=useRef<HTMLCanvasElement>(null);
+  const scoreRef=useRef(onScore); scoreRef.current=onScore;
+  const [muted,setMuted]=useState(false);
+  const mutedRef=useRef(false); mutedRef.current=muted;
 
-  useEffect(() => {
-    const c = canvas.current;
-    if (!c) return;
-    const ctx = c.getContext("2d");
-    if (!ctx) return;
-
-    let raf = 0;
-    let last = performance.now();
-    let dpr = 1;
-
-    const makeChallenge = (level:number):Challenge => {
-      const pool:Challenge["kind"][] = ["PRESS","HOLD","RELEASE","WAIT","DONT"];
-      const kind = pool[Math.floor(Math.random()*pool.length)];
-      const names:Record<Challenge["kind"],[string,string]> = {
-        PRESS:["PRESS","Appuie UNE fois au bon moment"],
-        HOLD:["HOLD","Maintiens le bouton jusqu'au signal"],
-        RELEASE:["RELEASE","Relâche quand la jauge atteint la zone"],
-        WAIT:["WAIT","N'appuie surtout pas tout de suite"],
-        DONT:["DON'T PRESS","Ne touche PAS au bouton"],
-      };
-      return { kind, label:names[kind][0], hint:names[kind][1], duration:Math.max(0.9,1.65-level*.035) };
+  useEffect(()=>{
+    const c=canvas.current;if(!c)return;const ctx=c.getContext("2d");if(!ctx)return;
+    let raf=0,last=performance.now(),dpr=1,dead=false,audio:AudioContext|null=null;
+    const bestKey="sg-best-pressure";
+    const beep=(f:number,g=.025,d=.05)=>{
+      if(mutedRef.current)return;
+      try{
+        audio ||= new AudioContext(); if(audio.state==="suspended")void audio.resume();
+        const o=audio.createOscillator(),gain=audio.createGain();
+        o.frequency.value=f;o.type="sine";gain.gain.setValueAtTime(.0001,audio.currentTime);
+        gain.gain.exponentialRampToValueAtTime(g,audio.currentTime+.01);
+        gain.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+d);
+        o.connect(gain).connect(audio.destination);o.start();o.stop(audio.currentTime+d+.01);
+      }catch{}
     };
-
-    const init = () => {
-      const r=c.getBoundingClientRect();
-      const w=Math.max(320,Math.floor(r.width));
-      const h=Math.max(620,Math.floor(r.height));
-      const best=(()=>{try{return Number(localStorage.getItem("sg-best-pressure"))||0}catch{return 0}})();
-      return {
-        w,h,t:0,score:0,best,level:1,streak:0,combo:1,
-        challenge:makeChallenge(1) as Challenge, challengeT:0,
-        phase:0,pressed:false,pressStarted:0,pressDuration:0,
-        over:false,flash:0,shake:0,success:0,fail:0,
-        particles:[] as any[],events:[] as any[],started:false,
-      };
+    const vibe=(x:number|number[])=>{try{if(navigator.vibrate)navigator.vibrate(x)}catch{}};
+    const getBest=()=>{try{return Number(localStorage.getItem(bestKey))||0}catch{return 0}};
+    const make=(level:number,lastKind:Kind|null):Challenge=>{
+      const pool:Kind[]=["PRESS","HOLD","RELEASE","WAIT","DONT","COUNT","MEMORY","FOCUS"];
+      const kind=pool.filter(k=>k!==lastKind)[Math.floor(Math.random()*(pool.length-(lastKind?1:0)))];
+      const fast=Math.min(.38,(level-1)*.018);
+      if(kind==="PRESS")return{kind,title:"PRESS",hint:"UNE TAPE DANS LA ZONE VERTE",duration:Math.max(.72,1.3-fast),target:.58+Math.random()*.14,window:Math.max(.08,.15-fast*.35)};
+      if(kind==="HOLD")return{kind,title:"HOLD",hint:"MAINTIENS PUIS RELÂCHE AU SIGNAL",duration:Math.max(1.05,1.7-fast),target:.78,window:.12};
+      if(kind==="RELEASE")return{kind,title:"RELEASE",hint:"GARDE LE BOUTON • RELÂCHE DANS LA ZONE JAUNE",duration:Math.max(.9,1.45-fast),target:.64,window:.1};
+      if(kind==="WAIT")return{kind,title:"WAIT",hint:"ATTENDS LE VERT AVANT D'APPUYER",duration:Math.max(.95,1.6-fast),target:.68,window:.1};
+      if(kind==="DONT")return{kind,title:"DON'T",hint:"NE TOUCHE À RIEN",duration:Math.max(.9,1.3-fast)};
+      if(kind==="COUNT")return{kind,title:"COUNT",hint:"TAPE EXACTEMENT LE NOMBRE AFFICHÉ",duration:Math.max(1.05,1.7-fast),count:2+Math.floor(Math.random()*Math.min(4,1+Math.floor(level/3)))};
+      if(kind==="MEMORY")return{kind,title:"MEMORY",hint:"MÉMORISE • PUIS REFAIS LE MÊME NOMBRE",duration:Math.max(1.5,2.35-fast),count:2+Math.floor(Math.random()*3)};
+      return{kind,title:"FOCUS",hint:"IGNORE LES FAUX SIGNAUX • SUIS LA ZONE VERTE",duration:Math.max(.78,1.35-fast),target:.55+(Math.random()-.5)*.12,window:Math.max(.07,.12-fast*.3)};
     };
+    const r=c.getBoundingClientRect();
+    const s:any={w:Math.max(320,Math.floor(r.width)),h:Math.max(620,Math.floor(r.height)),t:0,score:0,best:getBest(),level:1,combo:1,streak:0,ch:null,prev:null,timer:0,pressed:false,pressAt:0,taps:0,over:false,started:false,lock:false,flash:0,shake:0,particles:[],notice:"",noticeT:0,memoryVisible:true};
 
-    const s:any=init();
-
-    const resize=()=>{
-      const r=c.getBoundingClientRect();
-      dpr=Math.min(window.devicePixelRatio||1,2);
-      const w=Math.max(320,Math.floor(r.width)),h=Math.max(620,Math.floor(r.height));
-      c.width=Math.floor(w*dpr);c.height=Math.floor(h*dpr);
-      ctx.setTransform(dpr,0,0,dpr,0,0);s.w=w;s.h=h;
+    const save=()=>{if(s.score>s.best){s.best=s.score;try{localStorage.setItem(bestKey,String(s.best))}catch{}}};
+    const burst=(x:number,y:number,col:string,n=24)=>{for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=80+Math.random()*260;s.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.6,max:.6,size:2+Math.random()*4,col})}};
+    const next=()=>{s.level=1+Math.floor(s.score/450);s.ch=make(s.level,s.prev);s.prev=s.ch.kind;s.timer=0;s.pressed=false;s.pressAt=0;s.taps=0;s.lock=false;s.memoryVisible=s.ch.kind==="MEMORY";};
+    const success=(quality=1)=>{
+      if(s.lock||s.over)return;s.lock=true;
+      const gain=Math.round((95+s.level*12+quality*130)*s.combo);s.score+=gain;s.streak++;s.combo=Math.min(8,1+Math.floor(s.streak/3));
+      s.flash=.2;s.shake=.1;s.notice="✓ PERFECT  +"+gain;s.noticeT=.7;save();scoreRef.current?.(s.score);beep(520+s.level*10,.035,.08);vibe(14);burst(s.w/2,s.h*.57,"#63f6b5",30);
+      window.setTimeout(()=>{if(!dead)next()},280);
     };
-
-    const save=()=>{if(s.score>s.best){s.best=s.score;try{localStorage.setItem("sg-best-pressure",String(s.best))}catch{}}};
-    const burst=(x:number,y:number,col:string,n=18)=>{
-      for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=80+Math.random()*260;s.particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.55,max:.55,size:2+Math.random()*4,col})}
+    const fail=(msg:string)=>{
+      if(s.lock||s.over)return;s.lock=true;s.over=true;s.streak=0;s.combo=1;s.flash=.55;s.shake=.3;s.notice=msg;s.noticeT=1;save();beep(120,.07,.14);vibe([14,22,30]);burst(s.w/2,s.h*.57,"#ff5f7a",34);
     };
-    const event=(text:string,col:string)=>{
-      s.events.push({text,col,life:1,x:s.w/2,y:s.h*.29});
-    };
-    const next=()=>{
-      s.level=Math.max(1,1+Math.floor(s.score/5));
-      s.challenge=makeChallenge(s.level);
-      s.challengeT=0;s.phase=Math.random()*Math.PI*2;s.pressed=false;s.pressStarted=0;s.pressDuration=0;
-    };
-    const success=()=>{
-      const gain=100*s.combo+Math.round(s.challengeT*25);
-      s.score+=gain;s.streak++;s.combo=Math.min(9,1+Math.floor(s.streak/3));s.success=.34;s.flash=.12;
-      save();scoreRef.current?.(s.score);
-      event("✓ CORRECT  +"+gain,"#63f6b5");burst(s.w/2,s.h*.58,"#63f6b5",26);next();
-    };
-    const fail=()=>{
-      s.fail=.55;s.flash=.28;s.shake=.22;s.streak=0;s.combo=1;event("✕ TOO LATE","#ff5d79");burst(s.w/2,s.h*.58,"#ff5d79",32);
-      s.over=true;save();
-    };
-
-    const button=(x:number,y:number,r:number)=>{
-      const dx=x-s.w/2,dy=y-s.h*.57;return Math.hypot(dx,dy)<r;
-    };
-
-    const press=(down:boolean)=>{
-      if(s.over){Object.assign(s,init());return}
-      if(!s.started){s.started=true;s.challengeT=0;s.challenge=makeChallenge(1);return}
-      s.pressed=down;
-      if(down&&!s.pressStarted)s.pressStarted=s.t;
-      if(!down&&s.pressStarted){s.pressDuration=s.t-s.pressStarted;s.pressStarted=0}
-    };
-
-    const pointerDown=(e:PointerEvent)=>{
-      const r=c.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
-      if(button(x,y,Math.min(105,s.w*.22)))press(true);
-    };
-    const pointerUp=()=>press(false);
-    const keyDown=(e:KeyboardEvent)=>{
-      if(e.repeat)return;
-      if(e.code==="Space"||e.code==="Enter"){e.preventDefault();press(true)}
-    };
-    const keyUp=(e:KeyboardEvent)=>{
-      if(e.code==="Space"||e.code==="Enter"){e.preventDefault();press(false)}
-    };
-
-    const update=(dt:number)=>{
-      s.t+=dt;s.flash=Math.max(0,s.flash-dt);s.shake=Math.max(0,s.shake-dt);
-      for(const p of s.particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=360*dt;p.life-=dt}
-      s.particles=s.particles.filter((p:any)=>p.life>0);
-      for(const e of s.events){e.life-=dt;e.y-=12*dt}
-      s.events=s.events.filter((e:any)=>e.life>0);
-      if(s.over||!s.started)return;
-
-      s.challengeT+=dt;
-      const c=s.challenge as Challenge;
-      const progress=clamp(s.challengeT/c.duration,0,1);
-
-      if(c.kind==="PRESS" && s.pressed){
-        if(progress>.12&&progress<.78)success(); else fail();
-      }
-      if(c.kind==="WAIT" && s.pressed)fail();
-      if(c.kind==="DONT" && s.pressed)fail();
-
-      if(c.kind==="HOLD"){
-        if(!s.pressed&&s.pressStarted===0&&progress>.05) { /* wait */ }
-        if(s.pressed){
-          if(progress>.78){success();return}
-        } else if(s.pressDuration>0)fail();
-      }
-
-      if(c.kind==="RELEASE"){
-        const target=.62;
-        if(!s.pressed&&s.pressDuration>0){
-          if(Math.abs(progress-target)<.13)success();else fail();
+    const act=(down:boolean)=>{
+      if(s.over){s.over=false;s.started=false;s.score=0;s.level=1;s.combo=1;s.streak=0;s.prev=null;s.ch=null;s.timer=0;s.taps=0;s.notice="";s.lock=false;return;}
+      if(!s.started){s.started=true;next();beep(260,.02);return;}
+      if(s.lock||!s.ch)return;
+      const ch=s.ch as Challenge;
+      if(down){
+        if(s.pressed)return;s.pressed=true;s.pressAt=s.timer;
+        const p=clamp(s.timer/ch.duration,0,1);
+        if(ch.kind==="DONT")return fail("TOUCHÉ = PERDU");
+        if(ch.kind==="WAIT"&&p<(ch.target||.68)-(ch.window||.1))return fail("TOO SOON");
+        if(ch.kind==="PRESS"||ch.kind==="FOCUS"){
+          const q=1-Math.abs(p-(ch.target||.58))/(ch.window||.12);
+          if(q>=0)success(q);else fail(p<(ch.target||.58)?"TOO SOON":"TOO LATE");
+        }
+        if(ch.kind==="COUNT"||ch.kind==="MEMORY"){s.taps++;beep(330+s.taps*45,.02,.03);if(s.taps>=(ch.count||2))success(1);}
+      }else{
+        if(!s.pressed)return;s.pressed=false;
+        const p=clamp(s.timer/ch.duration,0,1);
+        if(ch.kind==="HOLD"||ch.kind==="RELEASE"){
+          const q=1-Math.abs(p-(ch.target||.7))/(ch.window||.11);
+          if(q>=0)success(q);else fail(ch.kind==="HOLD"?(p<(ch.target||.7)?"HOLD TOO SHORT":"HOLD TOO LONG"):"RELEASE MISSED");
         }
       }
+    };
 
-      if(progress>=1){
-        if(c.kind==="WAIT"||c.kind==="DONT")success(); else fail();
-      }
+    const resize=()=>{const rr=c.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);s.w=Math.max(320,Math.floor(rr.width));s.h=Math.max(620,Math.floor(rr.height));c.width=s.w*dpr;c.height=s.h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)};
+    const down=(e:PointerEvent)=>{if(e.pointerType==="mouse"&&e.button!==0)return;e.preventDefault();act(true)};
+    const up=(e:PointerEvent)=>{e.preventDefault();act(false)};
+    const key=(e:KeyboardEvent)=>{if(e.code!=="Space"&&e.code!=="Enter")return;e.preventDefault();act(true)};
+    const keyup=(e:KeyboardEvent)=>{if(e.code!=="Space"&&e.code!=="Enter")return;e.preventDefault();act(false)};
+
+    const update=(dt:number)=>{
+      s.t+=dt;s.flash=Math.max(0,s.flash-dt);s.shake=Math.max(0,s.shake-dt);s.noticeT=Math.max(0,s.noticeT-dt);
+      for(const p of s.particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=280*dt;p.life-=dt}s.particles=s.particles.filter((p:any)=>p.life>0);
+      if(!s.started||s.over||!s.ch||s.lock)return;
+      s.timer+=dt;const ch=s.ch as Challenge,p=clamp(s.timer/ch.duration,0,1);
+      if(ch.kind==="MEMORY"&&s.timer>.82)s.memoryVisible=false;
+      if((ch.kind==="COUNT"||ch.kind==="MEMORY")&&p>=1)return fail(ch.kind==="COUNT"?"COUNT MISSED":"MEMORY LOST");
+      if((ch.kind==="PRESS"||ch.kind==="FOCUS")&&p>=1)return fail("TOO LATE");
+      if(ch.kind==="WAIT"&&p>=1)return success(1);
+      if(ch.kind==="DONT"&&p>=1)return success(1);
+      if((ch.kind==="HOLD"||ch.kind==="RELEASE")&&p>=1)return fail(ch.kind==="HOLD"?"HOLD TOO LONG":"RELEASE MISSED");
     };
 
     const draw=()=>{
-      const shake=s.shake?((Math.random()-.5)*8):0;
-      ctx.save();ctx.translate(shake,shake);
-      const bg=ctx.createLinearGradient(0,0,0,s.h);
-      bg.addColorStop(0,"#06101d");bg.addColorStop(.48,"#0b1220");bg.addColorStop(1,"#03060c");
-      ctx.fillStyle=bg;ctx.fillRect(-10,-10,s.w+20,s.h+20);
-
-      const pulse=.5+.5*Math.sin(s.t*2.8);
-      ctx.globalAlpha=.12;
-      ctx.fillStyle=color;ctx.beginPath();ctx.arc(s.w/2,s.h*.57,180+pulse*35,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-
-      for(let i=0;i<26;i++){ctx.fillStyle=i%2?"#63f6b5":"#ffffff";ctx.globalAlpha=.04+.03*Math.sin(s.t*1.5+i);ctx.fillRect((i*97)%s.w,(i*173+s.t*8)%s.h,2,2)}ctx.globalAlpha=1;
-
-      ctx.textAlign="center";
-      ctx.fillStyle="#ffffff";ctx.font="900 12px Inter,system-ui";ctx.fillText("UNDER PRESSURE",s.w/2,34);
-      ctx.fillStyle="#ffffff66";ctx.font="800 9px Inter,system-ui";ctx.fillText("REACTION PROTOCOL • LEVEL "+s.level,s.w/2,51);
-
-      ctx.fillStyle="#050a12";ctx.beginPath();ctx.roundRect(18,70,s.w-36,76,18);ctx.fill();
-      ctx.strokeStyle="#ffffff14";ctx.stroke();
-      ctx.font="900 28px Inter,system-ui";ctx.fillStyle="#fff";ctx.fillText(String(s.score),s.w*.27,104);
-      ctx.font="800 9px Inter,system-ui";ctx.fillStyle="#ffffff66";ctx.fillText("SCORE",s.w*.27,124);
-      ctx.font="900 28px Inter,system-ui";ctx.fillStyle="#63f6b5";ctx.fillText("×"+s.combo,s.w*.73,104);
-      ctx.font="800 9px Inter,system-ui";ctx.fillStyle="#ffffff66";ctx.fillText("COMBO",s.w*.73,124);
-
-      const c=s.challenge as Challenge;
-      ctx.fillStyle="#ffffff";ctx.font="1000 30px Inter,system-ui";ctx.fillText(c.label,s.w/2,s.h*.27);
-      ctx.fillStyle="#ffffff99";ctx.font="700 12px Inter,system-ui";ctx.fillText(c.hint,s.w/2,s.h*.31);
-
-      const barX=s.w*.12,barW=s.w*.76,barY=s.h*.37;
-      ctx.fillStyle="#ffffff0d";ctx.beginPath();ctx.roundRect(barX,barY,barW,10,5);ctx.fill();
-      const prog=clamp(s.challengeT/c.duration,0,1);
-      const grad=ctx.createLinearGradient(barX,0,barX+barW,0);grad.addColorStop(0,"#63f6b5");grad.addColorStop(1,color);
-      ctx.fillStyle=grad;ctx.beginPath();ctx.roundRect(barX,barY,barW*prog,10,5);ctx.fill();
-
-      if(c.kind==="PRESS"||c.kind==="RELEASE"){
-        const target=c.kind==="PRESS"?0.45:0.62;
-        ctx.fillStyle="#ffe66d";ctx.fillRect(barX+barW*(target-.13),barY-5,2,20);ctx.fillRect(barX+barW*(target+.13),barY-5,2,20);
-        ctx.font="700 9px Inter";ctx.fillStyle="#ffe66d";ctx.fillText("ZONE PARFAITE",barX+barW*target,barY-10);
+      const w=s.w,h=s.h,cx=w/2,by=h*.57,br=Math.min(108,w*.225),prog=s.ch?clamp(s.timer/s.ch.duration,0,1):0;
+      ctx.save();ctx.translate(s.shake?(Math.random()-.5)*8:0,s.shake?(Math.random()-.5)*8:0);
+      const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,"#050a13");bg.addColorStop(.6,"#0a1322");bg.addColorStop(1,"#020408");ctx.fillStyle=bg;ctx.fillRect(-10,-10,w+20,h+20);
+      const glow=ctx.createRadialGradient(cx,by,0,cx,by,br*2.3);glow.addColorStop(0,"#63f6b520");glow.addColorStop(1,"#0000");ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,by,br*2.3,0,Math.PI*2);ctx.fill();
+      ctx.textAlign="center";ctx.fillStyle="#dffdf4";ctx.font="950 11px Inter,system-ui";ctx.fillText("UNDER PRESSURE",cx,31);ctx.fillStyle="#ffffff4d";ctx.font="800 8px Inter,system-ui";ctx.fillText("ONE BUTTON • REACTION • NO MERCY",cx,47);
+      ctx.fillStyle="#050a12df";ctx.beginPath();ctx.roundRect(16,64,w-32,68,18);ctx.fill();ctx.strokeStyle="#ffffff13";ctx.stroke();
+      ctx.fillStyle="#fff";ctx.font="900 27px Inter,system-ui";ctx.fillText(String(s.score),w*.27,98);ctx.font="800 8px Inter,system-ui";ctx.fillStyle="#ffffff50";ctx.fillText("SCORE",w*.27,116);
+      ctx.font="900 27px Inter,system-ui";ctx.fillStyle="#63f6b5";ctx.fillText("×"+s.combo,w*.73,98);ctx.font="800 8px Inter,system-ui";ctx.fillStyle="#ffffff50";ctx.fillText("COMBO",w*.73,116);
+      if(s.ch){
+        ctx.font="950 "+Math.max(29,Math.min(44,w*.095))+"px Inter,system-ui";ctx.fillStyle="#fff";ctx.fillText(s.ch.title,cx,h*.245);
+        ctx.font="700 11px Inter,system-ui";ctx.fillStyle="#ffffff99";ctx.fillText(s.ch.hint,cx,h*.285);
+        const bx=w*.11,bw=w*.78,by2=h*.345;ctx.fillStyle="#ffffff0f";ctx.beginPath();ctx.roundRect(bx,by2,bw,9,5);ctx.fill();
+        const g=ctx.createLinearGradient(bx,0,bx+bw,0);g.addColorStop(0,"#63f6b5");g.addColorStop(1,color);ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(bx,by2,bw*prog,9,5);ctx.fill();
+        if(s.ch.target!==undefined){ctx.fillStyle=s.ch.kind==="RELEASE"?"#ffe07a":"#63f6b5";ctx.globalAlpha=.8;const tx=bx+bw*s.ch.target,tw=bw*(s.ch.window||.1)*2;ctx.beginPath();ctx.roundRect(tx-tw/2,by2-4,tw,17,7);ctx.fill();ctx.globalAlpha=1}
+        if(s.ch.kind==="MEMORY"){ctx.font="950 34px Inter,system-ui";ctx.fillStyle=s.memoryVisible?"#63f6b5":"#ffffff25";ctx.fillText(s.memoryVisible?String(s.ch.count):"•••",cx,h*.425);ctx.font="800 9px Inter,system-ui";ctx.fillStyle="#ffffff55";ctx.fillText(s.memoryVisible?"MÉMORISE":"REFAIS-LE",cx,h*.455)}
+        if(s.ch.kind==="COUNT"){ctx.font="950 34px Inter,system-ui";ctx.fillStyle="#fff";ctx.fillText(String(s.ch.count),cx,h*.425);ctx.font="800 9px Inter,system-ui";ctx.fillStyle="#ffffff55";ctx.fillText(s.taps+" / "+s.ch.count,cx,h*.455)}
       }
-
-      const bx=s.w/2,by=s.h*.57,br=Math.min(105,s.w*.22);
-      const g=ctx.createRadialGradient(bx-br*.3,by-br*.4,5,bx,by,br*1.1);
-      g.addColorStop(0,s.pressed?"#ffffff":"#dffdf4");g.addColorStop(.18,s.pressed?"#63f6b5":"#39d89a");g.addColorStop(.7,s.pressed?"#0c9e70":"#087554");g.addColorStop(1,"#043c2c");
-      ctx.shadowBlur=s.pressed?38:22;ctx.shadowColor="#63f6b5";ctx.fillStyle=g;ctx.beginPath();ctx.arc(bx,by,br,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-      ctx.strokeStyle="#ffffff55";ctx.lineWidth=3;ctx.beginPath();ctx.arc(bx,by,br-8,0,Math.PI*2);ctx.stroke();
-      ctx.fillStyle="#fff";ctx.font="1000 "+Math.max(18,br*.28)+"px Inter";ctx.fillText(s.pressed?"REACT":"PRESS",bx,by+9);
-
-      ctx.fillStyle="#ffffff55";ctx.font="800 10px Inter";ctx.fillText("TAP / SPACE",bx,by+br+27);
-
-      const sideY=s.h*.78;
-      ctx.fillStyle="#050a12";ctx.beginPath();ctx.roundRect(24,sideY,s.w-48,86,18);ctx.fill();
-      ctx.strokeStyle="#ffffff10";ctx.stroke();
-      ctx.fillStyle="#fff";ctx.font="900 11px Inter";ctx.fillText(
-        c.kind==="HOLD"?"MAINTIENS JUSQU'AU SIGNAL":
-        c.kind==="RELEASE"?"RELÂCHE DANS LA ZONE JAUNE":
-        c.kind==="WAIT"?"ATTENDS. NE CLIQUE PAS":
-        c.kind==="DONT"?"NE TOUCHE SURTOUT PAS":
-        "UN SEUL CLIC, AU BON MOMENT",s.w/2,sideY+31);
-      ctx.fillStyle="#ffffff55";ctx.font="700 9px Inter";ctx.fillText("UNE ERREUR = RUN TERMINÉ",s.w/2,sideY+55);
-
-      if(!s.started&&!s.over){
-        ctx.fillStyle="#000b";ctx.fillRect(0,0,s.w,s.h);
-        ctx.fillStyle="#fff";ctx.font="1000 34px Inter";ctx.fillText("UNDER PRESSURE",s.w/2,s.h*.4);
-        ctx.fillStyle="#63f6b5";ctx.font="800 13px Inter";ctx.fillText("RÉAGIS. NE PANIQUE PAS.",s.w/2,s.h*.45);
-        ctx.fillStyle="#ffffffaa";ctx.font="700 11px Inter";ctx.fillText("Lis toute la consigne avant de toucher.",s.w/2,s.h*.51);
-        ctx.fillStyle="#ffffff66";ctx.font="800 10px Inter";ctx.fillText("TAPE LE BOUTON POUR COMMENCER",s.w/2,s.h*.57);
-      }
-
-      if(s.over){
-        ctx.fillStyle="#02040ae8";ctx.fillRect(0,0,s.w,s.h);
-        ctx.fillStyle="#ff5d79";ctx.font="1000 38px Inter";ctx.fillText("RUN FAILED",s.w/2,s.h*.4);
-        ctx.fillStyle="#fff";ctx.font="900 18px Inter";ctx.fillText("SCORE  "+s.score,s.w/2,s.h*.47);
-        ctx.fillStyle="#ffffff77";ctx.font="800 11px Inter";ctx.fillText("BEST  "+s.best,s.w/2,s.h*.51);
-        ctx.fillStyle="#63f6b5";ctx.font="900 12px Inter";ctx.fillText("TAPE POUR REJOUER",s.w/2,s.h*.58);
-      }
-
+      ctx.strokeStyle="#ffffff12";ctx.lineWidth=8;ctx.beginPath();ctx.arc(cx,by,br+17,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=s.ch?.kind==="DONT"?"#ffcf66":"#63f6b5";ctx.beginPath();ctx.arc(cx,by,br+17,-Math.PI/2,-Math.PI/2+Math.PI*2*prog);ctx.stroke();
+      const gg=ctx.createRadialGradient(cx-br*.3,by-br*.4,4,cx,by,br*1.1);gg.addColorStop(0,s.pressed?"#fff":"#e7fff7");gg.addColorStop(.2,"#55e3ad");gg.addColorStop(.74,s.pressed?"#0c9e70":"#087554");gg.addColorStop(1,"#033a2a");ctx.shadowBlur=28;ctx.shadowColor="#63f6b5";ctx.fillStyle=gg;ctx.beginPath();ctx.arc(cx,by,br,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle="#ffffff55";ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,by,br-7,0,Math.PI*2);ctx.stroke();
+      ctx.font="950 "+Math.max(18,br*.28)+"px Inter,system-ui";ctx.fillStyle="#fff";ctx.fillText(s.over?"RETRY":s.pressed?"HOLD":s.started?"PRESS":"START",cx,by+8);ctx.font="800 9px Inter,system-ui";ctx.fillStyle="#ffffff55";ctx.fillText("TAP / SPACE",cx,by+br+28);
+      const fy=h*.78;ctx.fillStyle="#050a12e8";ctx.beginPath();ctx.roundRect(20,fy,w-40,82,18);ctx.fill();ctx.strokeStyle="#ffffff10";ctx.stroke();ctx.font="850 10px Inter,system-ui";ctx.fillStyle="#fff";ctx.fillText(s.over?"TAP POUR REJOUER":"UNE ERREUR = RUN TERMINÉ",cx,fy+29);ctx.font="800 8px Inter,system-ui";ctx.fillStyle="#ffffff45";ctx.fillText("BEST "+s.best+"   •   STREAK "+s.streak+"   •   LV "+s.level,cx,fy+51);
+      if(!s.started&&!s.over){ctx.fillStyle="#02060ce6";ctx.fillRect(0,0,w,h);ctx.fillStyle="#fff";ctx.font="950 "+Math.max(30,Math.min(46,w*.105))+"px Inter,system-ui";ctx.fillText("UNDER PRESSURE",cx,h*.39);ctx.font="850 13px Inter,system-ui";ctx.fillStyle="#63f6b5";ctx.fillText("RÉAGIS. NE PANIQUE PAS.",cx,h*.445);ctx.font="700 11px Inter,system-ui";ctx.fillStyle="#ffffff74";ctx.fillText("Les règles changent. Le bouton reste le même.",cx,h*.485);ctx.font="850 9px Inter,system-ui";ctx.fillStyle="#ffffff48";ctx.fillText("TAPE LE BOUTON POUR COMMENCER",cx,h*.54)}
+      if(s.over){ctx.fillStyle="#02040af0";ctx.fillRect(0,0,w,h);ctx.font="950 "+Math.max(34,Math.min(50,w*.11))+"px Inter,system-ui";ctx.fillStyle="#ff5f7a";ctx.fillText("RUN FAILED",cx,h*.39);ctx.font="900 22px Inter,system-ui";ctx.fillStyle="#fff";ctx.fillText(String(s.score),cx,h*.47);ctx.font="800 10px Inter,system-ui";ctx.fillStyle="#ffffff60";ctx.fillText("SCORE   •   BEST "+s.best,cx,h*.51);ctx.font="900 12px Inter,system-ui";ctx.fillStyle="#63f6b5";ctx.fillText("TAPE POUR REJOUER",cx,h*.59)}
+      if(s.noticeT>0){ctx.globalAlpha=Math.min(1,s.noticeT);ctx.font="950 17px Inter,system-ui";ctx.fillStyle=s.over?"#ff5f7a":"#63f6b5";ctx.fillText(s.notice,cx,h*.52);ctx.globalAlpha=1}
       for(const p of s.particles){ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
-      for(const e of s.events){ctx.globalAlpha=Math.max(0,e.life);ctx.fillStyle=e.col;ctx.font="1000 16px Inter";ctx.fillText(e.text,e.x,e.y-(1-e.life)*24)}ctx.globalAlpha=1;
-
-      if(s.flash>0){ctx.globalAlpha=s.flash;ctx.fillStyle="#fff";ctx.fillRect(0,0,s.w,s.h);ctx.globalAlpha=1}
+      if(s.flash>0){ctx.globalAlpha=s.flash*(s.over?.35:.5);ctx.fillStyle=s.over?"#ff5f7a":"#63f6b5";ctx.fillRect(0,0,w,h);ctx.globalAlpha=1}
       ctx.restore();
     };
 
-    resize();
-    window.addEventListener("resize",resize);
-    c.addEventListener("pointerdown",pointerDown);
-    window.addEventListener("pointerup",pointerUp);
-    window.addEventListener("keydown",keyDown);
-    window.addEventListener("keyup",keyUp);
-
-    const frame=(now:number)=>{const dt=Math.min(.033,(now-last)/1000);last=now;update(dt);draw();raf=requestAnimationFrame(frame)};
-    raf=requestAnimationFrame(frame);
-
-    return()=>{cancelAnimationFrame(raf);window.removeEventListener("resize",resize);c.removeEventListener("pointerdown",pointerDown);window.removeEventListener("pointerup",pointerUp);window.removeEventListener("keydown",keyDown);window.removeEventListener("keyup",keyUp)};
+    resize();window.addEventListener("resize",resize);c.addEventListener("pointerdown",down);c.addEventListener("pointerup",up);c.addEventListener("pointercancel",up);window.addEventListener("keydown",key);window.addEventListener("keyup",keyup);
+    raf=requestAnimationFrame(function loop(now){const dt=Math.min(.033,(now-last)/1000);last=now;update(dt);draw();raf=requestAnimationFrame(loop)});
+    return()=>{dead=true;cancelAnimationFrame(raf);window.removeEventListener("resize",resize);c.removeEventListener("pointerdown",down);c.removeEventListener("pointerup",up);c.removeEventListener("pointercancel",up);window.removeEventListener("keydown",key);window.removeEventListener("keyup",keyup);try{audio?.close()}catch{}};
   },[color]);
 
-  return <div className="arcade-shell"><canvas ref={canvas} aria-label="Pressure Escape reaction game"/></div>;
+  return <div className="pressure-shell">
+    <canvas ref={canvas} aria-label="Under Pressure"/>
+    <button className="pressure-mute" onClick={()=>setMuted(v=>!v)} aria-label={muted?"Activer le son":"Couper le son"}>{muted?"MUTE":"VOL"}</button>
+  </div>;
 }
