@@ -164,7 +164,7 @@ export default function PressureEscape({ color, onScore }: Props) {
       for(let i=0;i<26;i++){ctx.fillStyle=i%2?"#63f6b5":"#ffffff";ctx.globalAlpha=.04+.03*Math.sin(s.t*1.5+i);ctx.fillRect((i*97)%s.w,(i*173+s.t*8)%s.h,2,2)}ctx.globalAlpha=1;
 
       ctx.textAlign="center";
-      ctx.fillStyle="#ffffff";ctx.font="900 12px Inter,system-ui";ctx.fillText("PRESSURE ESCAPE",s.w/2,34);
+      ctx.fillStyle="#ffffff";ctx.font="900 12px Inter,system-ui";ctx.fillText("UNDER PRESSURE",s.w/2,34);
       ctx.fillStyle="#ffffff66";ctx.font="800 9px Inter,system-ui";ctx.fillText("REACTION PROTOCOL • LEVEL "+s.level,s.w/2,51);
 
       ctx.fillStyle="#050a12";ctx.beginPath();ctx.roundRect(18,70,s.w-36,76,18);ctx.fill();
@@ -214,16 +214,16 @@ export default function PressureEscape({ color, onScore }: Props) {
         ctx.fillStyle="#000b";ctx.fillRect(0,0,s.w,s.h);
         ctx.fillStyle="#fff";ctx.font="1000 34px Inter";ctx.fillText("UNDER PRESSURE",s.w/2,s.h*.4);
         ctx.fillStyle="#63f6b5";ctx.font="800 13px Inter";ctx.fillText("RÉAGIS. NE PANIQUE PAS.",s.w/2,s.h*.45);
-        ctx.fillStyle="#ffffffaa";ctx.font="700 11px Inter";ctx.fillText("Le bouton change de règle à chaque manche.",s.w/2,s.h*.51);
+        ctx.fillStyle="#ffffffaa";ctx.font="700 11px Inter";ctx.fillText("Lis toute la consigne avant de toucher.",s.w/2,s.h*.51);
         ctx.fillStyle="#ffffff66";ctx.font="800 10px Inter";ctx.fillText("TAPE LE BOUTON POUR COMMENCER",s.w/2,s.h*.57);
       }
 
       if(s.over){
         ctx.fillStyle="#02040ae8";ctx.fillRect(0,0,s.w,s.h);
-        ctx.fillStyle="#ff5d79";ctx.font="1000 38px Inter";ctx.fillText("PRESSURE FAILED",s.w/2,s.h*.4);
+        ctx.fillStyle="#ff5d79";ctx.font="1000 38px Inter";ctx.fillText("RUN FAILED",s.w/2,s.h*.4);
         ctx.fillStyle="#fff";ctx.font="900 18px Inter";ctx.fillText("SCORE  "+s.score,s.w/2,s.h*.47);
         ctx.fillStyle="#ffffff77";ctx.font="800 11px Inter";ctx.fillText("BEST  "+s.best,s.w/2,s.h*.51);
-        ctx.fillStyle="#63f6b5";ctx.font="900 12px Inter";ctx.fillText("TAPE POUR RECOMMENCER",s.w/2,s.h*.58);
+        ctx.fillStyle="#63f6b5";ctx.font="900 12px Inter";ctx.fillText("TAPE POUR REJOUER",s.w/2,s.h*.58);
       }
 
       for(const p of s.particles){ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;
