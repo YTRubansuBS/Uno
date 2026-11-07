@@ -24,6 +24,7 @@ type CommandKind =
   | "RANDOM_COUNT"
   | "SPIDER_COUNT"
   | "SPIDER_DONT"
+  | "RELEASE_SPIDER"
   | "HOLD_LONG"
   | "SAME_AS_LAST"
   | "RAT_CUE"
@@ -279,7 +280,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         ],
         [
           { id: "g7a", kind: "HOLD_LONG", duration: 9, title: "HOLD LONGER", detail: "Maintiens pendant plus de 2 secondes.", variant: 0 },
-          { id: "g7b", kind: "RELEASE_SPIDER" as CommandKind, duration: 15, title: "HOLD • WAIT • RELEASE", detail: "Maintiens. Relâche seulement quand le signal apparaît.", variant: 1 },
+          { id: "g7b", kind: "RELEASE_SPIDER", duration: 15, title: "HOLD • WAIT • RELEASE", detail: "Maintiens. Relâche seulement quand l'araignée apparaît.", variant: 1 },
         ],
         [
           { id: "g8", kind: "SAME_AS_LAST", duration: 4.5, title: "SAME AS LAST", detail: "Fais exactement comme au dernier piège.", variant: 0 },
@@ -336,7 +337,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           { id: "g25", kind: "MEMORY_SHOW", duration: 4.5, title: "REMEMBER THIS", detail: "Un nombre va apparaître. Mémorise-le.", variant: 0 },
         ],
         [
-          { id: "g26", kind: "MEMORY_CHECK", duration: 6, title: "GOOD MEMORY?", detail: "Appuie si tu as retenu le nombre.", variant: 0 },
+          { id: "g26", kind: "MEMORY_CHECK", duration: 6, title: "MEMORY CHECK", detail: "PAIR = PRESS • IMPAIR = WAIT.", variant: 0 },
         ],
         [
           { id: "g27", kind: "RANDOM_COUNT", duration: 6, title: "CHOOSE YOUR ANSWER", detail: "Lis toute la phrase avant d'appuyer.", variant: 0 },
@@ -376,7 +377,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       // Add a few clearly distinct Scroll Game variations while keeping the same progression rhythm.
       const tail = [
         { id: "tail1", kind: "SPIDER_DONT" as CommandKind, duration: 4.5, title: "IGNORE IT", detail: "Une araignée arrive. NE CLIQUE PAS.", variant: 0 },
-        { id: "tail2", kind: "MEMORY_CHECK" as CommandKind, duration: 6, title: "REMEMBER?", detail: "Une pression si tu as retenu le nombre.", variant: 0 },
+        { id: "tail2", kind: "MEMORY_CHECK", duration: 6, title: "MEMORY CHECK", detail: "PAIR = PRESS • IMPAIR = WAIT.", variant: 0 },
         { id: "tail3", kind: "FINAL" as CommandKind, duration: 8, title: "PRESS TO ASCEND", detail: "Le dernier bouton.", variant: 0 },
       ];
       commands.push(tail[0], tail[1], tail[2]);
@@ -467,6 +468,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         c.kind === "RANDOM_COUNT" ||
         c.kind === "SPIDER_COUNT" ||
         c.kind === "HOLD" ||
+        c.kind === "RELEASE_SPIDER" ||
         c.kind === "HOLD_LONG" ||
         c.kind === "RAT_CUE" ||
         c.kind === "CATS_EVEN" ||
@@ -550,8 +552,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       s.ratVisible && x > 270 && x < 370 && y > 430 && y < 565;
 
     const countTarget = (c: Command) => {
-      if (c.kind === "COUNT_WORDS") return c.id === "g2a" ? 8 : 7;
-      if (c.kind === "MATH_COUNT") return Number(c.variant) + 2;
+      if (c.kind === "COUNT_WORDS") return 6;
+      if (c.kind === "MATH_COUNT") return Number(c.variant) + 3;
       if (c.kind === "RANDOM_COUNT") return Number(c.variant) || 4;
       if (c.kind === "SPIDER_COUNT") return Number(c.variant) || 3;
       return 0;
@@ -622,6 +624,9 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           if (s.presses === 2) finishCommand(130);
           return;
         case "HOLD":
+          return;
+        case "RELEASE_SPIDER":
+          if (s.holdStart === null) s.holdStart = s.commandT;
           return;
         case "MATH_COUNT":
         case "RANDOM_COUNT":
@@ -697,6 +702,12 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         if (held < 2) fail("HOLD LONGER");
         else finishCommand(150);
       }
+      if (c.kind === "RELEASE_SPIDER") {
+        const held = s.holdStart === null ? 0 : s.commandT - s.holdStart;
+        if (!s.spiderVisible) fail(held < 6 ? "WAIT FOR SPIDER" : "TOO LATE");
+        else if (held < 6) fail("HOLD FIRST");
+        else finishCommand(180);
+      }
     };
 
     const updateCommand = (dt: number) => {
@@ -720,6 +731,11 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       if (c.kind === "SPIDER_COUNT") {
         s.spiderVisible = s.commandT >= 1.3 && s.commandT <= 3.8;
       }
+      if (c.kind === "RELEASE_SPIDER") {
+        s.spiderVisible = s.commandT >= 6 && s.commandT < c.duration - 1.0;
+        if (s.spiderVisible && s.buttonDown) s.phaseLabel = "RELEASE NOW";
+        else if (s.commandT < 6) s.phaseLabel = "HOLD • WAIT";
+      }
 
       if (c.kind === "HALF_TIME") {
         s.spiderVisible = s.commandT >= 7 && s.commandT < 12;
@@ -732,9 +748,11 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         s.holdStart = s.commandT;
       }
 
-      if (c.kind === "HOLD_LONG" && s.buttonDown && s.holdStart !== null && s.commandT - s.holdStart >= 2) {
+      if (c.kind === "RELEASE_SPIDER" && s.spiderVisible && s.buttonDown) {
         s.phaseLabel = "RELEASE NOW";
-      } else if (c.kind !== "MEMORY_SHOW") {
+      } else if (c.kind === "HOLD_LONG" && s.buttonDown && s.holdStart !== null && s.commandT - s.holdStart >= 2) {
+        s.phaseLabel = "RELEASE NOW";
+      } else if (c.kind !== "MEMORY_SHOW" && c.kind !== "RELEASE_SPIDER") {
         s.phaseLabel = s.commandT < 0.75 ? "READ" : "ACT";
       }
 
@@ -771,6 +789,9 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             return;
           case "SPIDER_DONT":
             finishCommand(100);
+            return;
+          case "RELEASE_SPIDER":
+            fail(s.buttonDown ? "RELÂCHE !" : "DIDN'T RELEASE");
             return;
           case "LESS_TWO":
             if (s.presses < 2) finishCommand(110);
@@ -1324,6 +1345,16 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           if (s.spiderVisible) drawSpider();
           else text("L'ARAIGNÉE ARRIVE...", BUTTON_X, 365, 15, "#ffda7d", 900);
           break;
+        case "RELEASE_SPIDER":
+          if (s.commandT < 1) {
+            text("MAINTIENS...", BUTTON_X, 350, 26, "#75ffa7", 950);
+          } else if (!s.spiderVisible) {
+            text("MAINTIENS • ATTENDS", BUTTON_X, 350, 22, "#75ffa7", 950);
+          } else {
+            drawSpider();
+            text("RELÂCHE !", BUTTON_X, 455, 24, "#ffcf73", 950);
+          }
+          break;
         case "HOLD_LONG":
           text(s.holdStart !== null && s.buttonDown ? "MAINTIENS..." : "PLUS DE 2 SEC", BUTTON_X, 350, 26, "#75ffa7", 950);
           if (s.phaseLabel === "RELEASE NOW") text("RELÂCHE", BUTTON_X, 410, 18, "#ffda7d", 950);
@@ -1422,7 +1453,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
     const drawEnd = () => {
       text("ASCENSION COMPLETE", BUTTON_X, 240, 31, "#65ff9e", 950);
-      text("TU AS SURVÉCU AUX 43 COMMANDES.", BUTTON_X, 284, 12, "#d6f6e1", 800);
+      text("TU AS SURVÉCU AUX " + String(s.commands.length) + " COMMANDES.", BUTTON_X, 284, 12, "#d6f6e1", 800);
       drawRounded(44, 320, 302, 104, 24, "#020b05e8", "#13ff6a26");
       text("SCORE", BUTTON_X, 350, 9, "#7db893", 800);
       text(String(s.score), BUTTON_X, 390, 38, "#ffffff", 950);
@@ -1499,6 +1530,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
     const pointerDown = (e: PointerEvent) => {
       e.preventDefault();
+      try { canvas.setPointerCapture(e.pointerId); } catch {}
       const rect = canvas.getBoundingClientRect();
       const x = (e.clientX - rect.left - ox) / scale;
       const y = (e.clientY - rect.top - oy) / scale;
@@ -1512,11 +1544,12 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
     const pointerUp = (e: PointerEvent) => {
       e.preventDefault();
+      try { if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); } catch {}
       onRelease();
     };
 
     const keyDown = (e: KeyboardEvent) => {
-      if (e.code !== "Space" && e.code !== "Enter") return;
+      if (e.code !== "Space" && e.code !== "Enter" || e.repeat) return;
       e.preventDefault();
       onPress(BUTTON_X, BUTTON_Y);
     };
