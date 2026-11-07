@@ -79,9 +79,7 @@ type GameState = {
   weirdCorners: number;
   ratVisible: boolean;
   spiderVisible: boolean;
-  spiderTriggered: boolean;
   humanAnswer: boolean | null;
-  lieArmed: boolean;
   inputLockedUntil: number;
   holdStart: number | null;
   phaseLabel: string;
@@ -150,9 +148,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       weirdCorners: 10,
       ratVisible: false,
       spiderVisible: false,
-      spiderTriggered: false,
       humanAnswer: null,
-      lieArmed: false,
       inputLockedUntil: 0,
       holdStart: null,
       phaseLabel: "READY",
@@ -277,6 +273,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         [
           { id: "g6a", kind: "RANDOM_COUNT", duration: 6, title: "PRESS THE NUMBER", detail: "Le compteur t'indique combien de fois.", variant: 0 },
           { id: "g6b", kind: "RANDOM_COUNT", duration: 6, title: "COUNT DOWN", detail: "Compte les pressions restantes.", variant: 1 },
+          { id: "g6c", kind: "SPIDER_COUNT", duration: 6, title: "PRESS THROUGH THE SPIDER", detail: "Compte exactement les pressions demandées malgré la distraction.", variant: 2 },
         ],
         [
           { id: "g7a", kind: "HOLD_LONG", duration: 9, title: "HOLD LONGER", detail: "Maintiens pendant plus de 2 secondes.", variant: 0 },
@@ -304,7 +301,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           { id: "g14", kind: "COUNT_WORDS", duration: 9, title: "MEMORY + COUNT", detail: "Lis toute la phrase avant de toucher.", variant: 0 },
         ],
         [
-          { id: "g15", kind: "NEXT_LIE", duration: 4.5, title: "READ THE NEXT LINE", detail: "La prochaine consigne sera spéciale.", variant: 0 },
+          { id: "g15", kind: "NEXT_LIE", duration: 4.5, title: "READ EVERYTHING", detail: "Ne touche à rien. La prochaine consigne contient le vrai piège.", variant: 0 },
         ],
         [
           { id: "g16", kind: "PRESS", duration: 12, title: "DO PRESS", detail: "Cette fois, l'instruction est honnête.", variant: 0 },
@@ -331,7 +328,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           { id: "g23", kind: "CLOCK", duration: 10.5, title: "WHAT TIME IS IT?", detail: "Presse une fois par heure affichée.", variant: 0 },
         ],
         [
-          { id: "g24", kind: "NEXT_LIE", duration: 4.5, title: "THE NEXT COMMAND", detail: "Lis jusqu'au bout.", variant: 0 },
+          { id: "g24", kind: "NEXT_LIE", duration: 4.5, title: "READ EVERYTHING", detail: "Ne touche à rien. La prochaine consigne contient le vrai piège.", variant: 0 },
         ],
         [
           { id: "g25", kind: "MEMORY_SHOW", duration: 4.5, title: "REMEMBER THIS", detail: "Un nombre va apparaître. Mémorise-le.", variant: 0 },
@@ -354,7 +351,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       ];
 
       const groupOrder = [
-        0,1,1,8,25,5,9,3,10,2,11,5,3,12,2,13,4,27,23,14,5,5,28,3,15,24,16,6,5,17,7,3,18,4,2,7,19,4,20,21,26,22
+        0,1,1,8,24,5,9,3,10,2,11,5,3,12,2,13,4,27,23,16,5,5,28,3,15,25,16,6,5,17,7,3,18,4,2,7,19,4,20,21,26,22
       ];
 
       const commands: Command[] = [];
@@ -389,6 +386,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
     const fail = (text: string) => {
       if (s.phase !== "COMMAND") return;
+      s.buttonDown = false;
+      s.holdStart = null;
       s.phase = "FAIL";
       s.failedText = text;
       s.combo = 0;
@@ -417,8 +416,18 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       }
     };
 
-    const finishCommand = (bonus = 0) => {
+    const finishCommand = (bonus = 0, actionOverride?: boolean) => {
+      const activeBeforeTransition = current();
+      const actionWasPress = actionOverride ?? (
+        s.presses > 0 ||
+        s.buttonDown ||
+        activeBeforeTransition?.kind === "RAT_CUE" ||
+        activeBeforeTransition?.kind === "RELEASE_SPIDER" ||
+        activeBeforeTransition?.kind === "HOLD" ||
+        activeBeforeTransition?.kind === "HOLD_LONG"
+      );
       s.previousRequiredPress = s.lastRequiredPress;
+      s.lastRequiredPress = actionWasPress;
       s.combo += 1;
       s.maxCombo = Math.max(s.maxCombo, s.combo);
       s.totalClears += 1;
@@ -446,47 +455,24 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       s.holdStart = null;
       s.ratVisible = false;
       s.spiderVisible = false;
-      s.spiderTriggered = false;
-      s.inputLockedUntil = performance.now() + 220;
-      setupCommand();
+      setupCommand(220);
     };
 
-    const setupCommand = () => {
+    const setupCommand = (lockMs = 220) => {
       const c = current();
       if (!c) return;
       s.phaseLabel = "READ";
-      s.lastRequiredPress =
-        c.kind === "PRESS" ||
-        c.kind === "DOUBLE" ||
-        c.kind === "COUNT_WORDS" ||
-        c.kind === "LESS_TWO" ||
-        c.kind === "MORE_FIVE" ||
-        c.kind === "CORNERS" ||
-        c.kind === "HUMAN" ||
-        c.kind === "ROBOT" ||
-        c.kind === "MATH_COUNT" ||
-        c.kind === "RANDOM_COUNT" ||
-        c.kind === "SPIDER_COUNT" ||
-        c.kind === "HOLD" ||
-        c.kind === "RELEASE_SPIDER" ||
-        c.kind === "HOLD_LONG" ||
-        c.kind === "RAT_CUE" ||
-        c.kind === "CATS_EVEN" ||
-        c.kind === "CATS_EARLIER" ||
-        c.kind === "RESPECT" ||
-        c.kind === "KEEP_PRESSING" ||
-        c.kind === "HALF_TIME" ||
-        c.kind === "MORE_THAN_CORNERS" ||
-        c.kind === "MEMORY_CHECK" ||
-        c.kind === "CLOCK" ||
-        c.kind === "FINAL";
+      const unlockAt = performance.now() + lockMs;
+      s.inputLockedUntil = unlockAt;
+      s.commandStartAt = unlockAt;
+      // The previous successful action is recorded by finishCommand.
 
       if (c.kind === "CORNERS") {
         const shape = randomShape();
         s.currentShape = shape;
         s.shapeNeed = shapeInfo(shape).need;
       }
-      if (c.kind === "RANDOM_COUNT") {
+      if (c.kind === "RANDOM_COUNT" || c.kind === "SPIDER_COUNT") {
         c.variant = 3 + Math.floor(Math.random() * 6);
       }
       if (c.kind === "MATH_COUNT") {
@@ -524,6 +510,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       s.successFlash = 0;
       s.timerSegments = SEGMENTS;
       s.lastKind = null;
+      s.lastRequiredPress = null;
       s.previousRequiredPress = null;
       s.buttonDown = false;
       s.presses = 0;
@@ -531,6 +518,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       s.memoryCats = countCatsForRun();
       s.currentCats = s.memoryCats;
       s.memoryNumber = Math.floor(Math.random() * 90) + 10;
+      s.rememberedNumberStage = false;
+      s.holdStart = null;
       s.clockHour = 1 + Math.floor(Math.random() * 12);
       s.combo = 0;
       s.maxCombo = 0;
@@ -538,9 +527,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       s.feedbackT = 0;
       s.totalClears = 0;
       particles.length = 0;
-      s.inputLockedUntil = performance.now() + 350;
       s.commands = buildCommands();
-      setupCommand();
+      setupCommand(350);
       buzz(15);
       tone(260, 0.08, 0.03);
     };
@@ -548,8 +536,18 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
     const buttonHit = (x: number, y: number) =>
       Math.hypot(x - BUTTON_X, y - BUTTON_Y) <= BUTTON_R + 8;
 
-    const ratHit = (x: number, y: number) =>
-      s.ratVisible && x > 270 && x < 370 && y > 430 && y < 565;
+    const ratPosition = () => ({
+      x: 318,
+      y: 500 + Math.sin(s.commandT * 7) * 8,
+    });
+
+    const ratHit = (x: number, y: number) => {
+      if (!s.ratVisible) return false;
+      const { x: rx, y: ry } = ratPosition();
+      const body = ((x - rx) ** 2) / (43 ** 2) + ((y - ry) ** 2) / (28 ** 2) <= 1;
+      const head = Math.hypot(x - (rx - 33), y - (ry - 13)) <= 17;
+      return body || head;
+    };
 
     const countTarget = (c: Command) => {
       if (c.kind === "COUNT_WORDS") return 6;
@@ -576,7 +574,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       if (!c) return;
 
       if (c.kind === "RAT_CUE" && ratHit(x, y)) {
-        finishCommand(180);
+        finishCommand(180, true);
         return;
       }
 
@@ -647,8 +645,9 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           fail("WRONG TARGET");
           return;
         case "CATS_EVEN":
-          if (s.currentCats % 2 === 1) fail("ODD — DO NOTHING");
-          else finishCommand(140);
+          if (s.commandT < 1.0) fail("WAIT FOR THE CATS");
+          else if (s.currentCats % 2 === 1) fail("ODD — DO NOTHING");
+          else finishCommand(140, true);
           return;
         case "CATS_EARLIER":
           if (s.presses > s.memoryCats) fail("TOO MANY");
@@ -671,7 +670,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           fail("LOOK FIRST");
           return;
         case "MEMORY_CHECK":
-          if (s.memoryNumber % 2 === 0) finishCommand(120);
+          if (!s.rememberedNumberStage) fail("MEMORY NOT SHOWN");
+          else if (s.memoryNumber % 2 === 0) finishCommand(120, true);
           else fail("MEMORY TRAP");
           return;
         case "CLOCK":
@@ -705,16 +705,16 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       if (c.kind === "RELEASE_SPIDER") {
         const held = s.holdStart === null ? 0 : s.commandT - s.holdStart;
         if (!s.spiderVisible) fail(held < 6 ? "WAIT FOR SPIDER" : "TOO LATE");
-        else if (held < 6) fail("HOLD FIRST");
-        else finishCommand(180);
+        else if (s.holdStart === null || s.holdStart > 6) fail("HOLD BEFORE SPIDER");
+        else finishCommand(180, true);
       }
     };
 
-    const updateCommand = (dt: number) => {
+    const updateCommand = (_dt: number) => {
       const c = current();
       if (!c) return;
 
-      s.commandT += dt;
+      s.commandT = clamp((performance.now() - s.commandStartAt) / 1000, 0, c.duration);
 
       const remaining = clamp(1 - s.commandT / c.duration, 0, 1);
       const seg = Math.ceil(remaining * SEGMENTS);
@@ -769,7 +769,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       }
 
       if (c.kind === "MORE_THAN_CORNERS") {
-        s.phaseLabel = s.presses >= 16 ? "ENOUGH" : "KEEP GOING";
+        s.phaseLabel = s.presses >= s.weirdCorners + 1 ? "ENOUGH" : "KEEP GOING";
       }
 
       // Automatic outcomes.
@@ -827,11 +827,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             else fail("WRONG CORNERS");
             return;
           case "HOLD_LONG":
-            if (s.buttonDown) {
-              const held = s.holdStart === null ? 0 : s.commandT - s.holdStart;
-              if (held >= 2) finishCommand(150);
-              else fail("NOT LONG ENOUGH");
-            } else fail("LET GO");
+            if (s.buttonDown) fail("RELEASE AFTER 2 SEC");
+            else fail("LET GO");
             return;
           case "SAME_AS_LAST":
             if (s.previousRequiredPress === false) finishCommand(120);
@@ -841,7 +838,9 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             fail("MISSED THE TARGET");
             return;
           case "CATS_EVEN":
-            if (s.currentCats % 2 === 1 && s.presses === 0) finishCommand(130);
+            if (s.commandT < 1.0) fail("WAIT FOR THE CATS");
+            else if (s.currentCats % 2 === 1 && s.presses === 0) finishCommand(130, false);
+            else if (s.currentCats % 2 === 0 && s.presses === 0) fail("PRESS ON EVEN");
             else fail("WRONG CAT ANSWER");
             return;
           case "CATS_EARLIER":
@@ -849,19 +848,20 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             else fail("WRONG MEMORY COUNT");
             return;
           case "NEXT_LIE":
-            finishCommand(90);
+            finishCommand(90, false);
             return;
           case "RESPECT":
             fail("TOO LATE");
             return;
           case "KEEP_PRESSING":
-            finishCommand(130);
+            if (s.presses > 0) finishCommand(130, true);
+            else fail("KEEP PRESSING");
             return;
           case "HALF_TIME":
             fail("TOO LATE");
             return;
           case "MORE_THAN_CORNERS":
-            if (s.presses >= 16) finishCommand(190);
+            if (s.presses >= s.weirdCorners + 1) finishCommand(190, true);
             else fail("KEEP PRESSING");
             return;
           case "CLOCK":
@@ -869,11 +869,13 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             else fail("WRONG TIME");
             return;
           case "MEMORY_SHOW":
+            s.rememberedNumberStage = true;
             s.phaseLabel = "REMEMBERED";
-            finishCommand(100);
+            finishCommand(100, false);
             return;
           case "MEMORY_CHECK":
-            if (s.memoryNumber % 2 === 1 && s.presses === 0) finishCommand(120);
+            if (!s.rememberedNumberStage) fail("MEMORY NOT SHOWN");
+            else if (s.memoryNumber % 2 === 1 && s.presses === 0) finishCommand(120, false);
             else fail("MEMORY TRAP");
             return;
           case "FINAL":
@@ -1198,8 +1200,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
     };
 
     const drawRat = () => {
-      const x = 318;
-      const y = 500 + Math.sin(s.commandT * 7) * 8;
+      const { x, y } = ratPosition();
       ctx.save();
       ctx.translate(x, y);
       ctx.fillStyle = "#d9e8df";
@@ -1247,7 +1248,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         const a = i * Math.PI / 6 - Math.PI / 2;
         const x = cx + Math.cos(a) * (r - 12);
         const y = cy + Math.sin(a) * (r - 12);
-        text(String(i + 1), x, y, 10, "#d8ffe6", 800);
+        text(String(i === 0 ? 12 : i), x, y, 10, "#d8ffe6", 800);
       }
       const angle = (hour % 12) * Math.PI / 6 - Math.PI / 2;
       ctx.strokeStyle = "#ffffff";
@@ -1284,7 +1285,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       ctx.closePath();
       ctx.stroke();
       ctx.restore();
-      text("16+ PRESSIONS", BUTTON_X, 485, 12, "#65ff9e", 900);
+      text(String(s.weirdCorners + 1) + "+ PRESSIONS", BUTTON_X, 485, 12, "#65ff9e", 900);
     };
 
     const drawCommand = (c: Command) => {
@@ -1528,8 +1529,12 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       ctx.setTransform(dpr * scale, 0, 0, dpr * scale, ox * dpr, oy * dpr);
     };
 
+    let activePointerId: number | null = null;
+
     const pointerDown = (e: PointerEvent) => {
       e.preventDefault();
+      if (activePointerId !== null) return;
+      activePointerId = e.pointerId;
       try { canvas.setPointerCapture(e.pointerId); } catch {}
       const rect = canvas.getBoundingClientRect();
       const x = (e.clientX - rect.left - ox) / scale;
@@ -1544,20 +1549,40 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
     const pointerUp = (e: PointerEvent) => {
       e.preventDefault();
+      if (activePointerId !== e.pointerId) return;
+      activePointerId = null;
       try { if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); } catch {}
       onRelease();
     };
 
     const keyDown = (e: KeyboardEvent) => {
       if (e.code !== "Space" && e.code !== "Enter" || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("button,input,textarea,select,a")) return;
       e.preventDefault();
-      onPress(BUTTON_X, BUTTON_Y);
+      if (s.phase === "COMMAND" && current()?.kind === "RAT_CUE" && s.ratVisible) {
+        const { x, y } = ratPosition();
+        onPress(x, y);
+      } else {
+        onPress(BUTTON_X, BUTTON_Y);
+      }
     };
 
     const keyUp = (e: KeyboardEvent) => {
       if (e.code !== "Space" && e.code !== "Enter") return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("button,input,textarea,select,a")) return;
       e.preventDefault();
       onRelease();
+    };
+
+    const releaseOnFocusLoss = () => {
+      activePointerId = null;
+      if (s.buttonDown) onRelease();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) releaseOnFocusLoss();
     };
 
     const loop = (now: number) => {
@@ -1589,6 +1614,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
     window.addEventListener("keydown", keyDown);
     window.addEventListener("keyup", keyUp);
     window.addEventListener("resize", resize);
+    window.addEventListener("blur", releaseOnFocusLoss);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     resize();
     raf = requestAnimationFrame(loop);
@@ -1602,6 +1629,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       window.removeEventListener("keydown", keyDown);
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("blur", releaseOnFocusLoss);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       try {
         audio?.close();
       } catch {}
