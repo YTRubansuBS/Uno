@@ -95,8 +95,8 @@ const W = 390;
 const H = 844;
 const BUTTON_X = 195;
 const BUTTON_Y = 604;
-const BUTTON_R = 82;
-const RING_R = 112;
+const BUTTON_R = 108;
+const RING_R = 138;
 const SEGMENTS = 40;
 
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
@@ -284,7 +284,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           { id: "g8", kind: "SAME_AS_LAST", duration: 4.5, title: "SAME AS LAST", detail: "Fais exactement comme au dernier piège.", variant: 0 },
         ],
         [
-          { id: "g9", kind: "RAT_CUE", duration: 4.5, title: "WATCH THE SIDE", detail: "Quelque chose va apparaître. Attends le signal.", variant: 0 },
+          { id: "g9", kind: "RAT_CUE", duration: 4.5, title: "PRESS WHEN YOU SEE THE RAT", detail: "Le rat est annoncé avant son arrivée. Appuie sur le bouton quand tu le vois.", variant: 0 },
         ],
         [
           { id: "g10", kind: "DONT", duration: 6, title: "DON'T PRESS", detail: "Le visuel est là pour te faire réagir.", variant: 0 },
@@ -374,7 +374,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
       // Add a few clearly distinct Scroll Game variations while keeping the same progression rhythm.
       const tail: Command[] = [
-        { id: "tail1", kind: "SPIDER_DONT", duration: 4.5, title: "IGNORE IT", detail: "Une araignée arrive. NE CLIQUE PAS.", variant: 0 },
+        { id: "tail1", kind: "SPIDER_DONT", duration: 4.5, title: "NEVER PRESS WHEN YOU SEE THE SPIDER", detail: "L'araignée est annoncée avant son arrivée. Ne touche pas au bouton.", variant: 0 },
         { id: "tail2", kind: "MEMORY_CHECK", duration: 6, title: "MEMORY CHECK", detail: "PAIR = PRESS • IMPAIR = WAIT.", variant: 0 },
         { id: "tail3", kind: "FINAL", duration: 8, title: "PRESS TO ASCEND", detail: "Le dernier bouton.", variant: 0 },
       ];
@@ -539,16 +539,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
     const ratPosition = () => ({
       x: 318,
-      y: 500 + Math.sin(s.commandT * 7) * 8,
+      y: BUTTON_Y - 96 + Math.sin(s.commandT * 7) * 8,
     });
-
-    const ratHit = (x: number, y: number) => {
-      if (!s.ratVisible) return false;
-      const { x: rx, y: ry } = ratPosition();
-      const body = ((x - rx) ** 2) / (43 ** 2) + ((y - ry) ** 2) / (28 ** 2) <= 1;
-      const head = Math.hypot(x - (rx - 33), y - (ry - 13)) <= 17;
-      return body || head;
-    };
 
     const countTarget = (c: Command) => {
       if (c.kind === "COUNT_WORDS") return 6;
@@ -573,11 +565,6 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
       const c = current();
       if (!c) return;
-
-      if (c.kind === "RAT_CUE" && ratHit(x, y)) {
-        finishCommand(180, true);
-        return;
-      }
 
       if (!buttonHit(x, y)) return;
 
@@ -643,7 +630,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           else fail("THIS ONE WAS A NO-PRESS");
           return;
         case "RAT_CUE":
-          fail("WRONG TARGET");
+          if (!s.ratVisible) fail("TOO SOON");
+          else finishCommand(180, true);
           return;
         case "CATS_EVEN":
           if (s.commandT < 1.0) fail("WAIT FOR THE CATS");
@@ -1029,7 +1017,44 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       }
     };
 
-    const drawButton = (label: string) => {
+    const buttonInstruction = (c: Command | null): string[] => {
+      if (!c) return ["PRESS"];
+      switch (c.kind) {
+        case "PRESS": return ["PRESS ONCE"];
+        case "DONT":
+        case "QUICK_DONT":
+        case "WAIT": return ["DO NOT PRESS"];
+        case "COUNT_WORDS": return ["PRESS ONCE", "PER WORD"];
+        case "LESS_TWO": return ["LESS THAN 2", "PRESSES"];
+        case "MORE_FIVE": return ["MORE THAN 5", "PRESSES"];
+        case "CORNERS": return ["PRESS ONCE", "PER CORNER"];
+        case "HUMAN": return ["ARE YOU", "HUMAN?"];
+        case "ROBOT": return ["ARE YOU A", "ROBOT?"];
+        case "DOUBLE": return ["PRESS", "TWICE"];
+        case "HOLD": return ["PRESS &", "HOLD"];
+        case "MATH_COUNT": return [`PRESS ${countTarget(c)} TIMES`];
+        case "RANDOM_COUNT": return [`PRESS ${countTarget(c)} TIMES`];
+        case "SPIDER_COUNT": return [`PRESS ${countTarget(c)} TIMES`, "IGNORE THE SPIDER"];
+        case "SPIDER_DONT": return ["NEVER PRESS", "WHEN YOU SEE", "THE SPIDER"];
+        case "RELEASE_SPIDER": return ["HOLD UNTIL", "SPIDER APPEARS", "THEN RELEASE"];
+        case "HOLD_LONG": return ["HOLD > 2 SEC", "THEN RELEASE"];
+        case "SAME_AS_LAST": return ["SAME AS", "LAST TIME"];
+        case "RAT_CUE": return ["PRESS WHEN", "YOU SEE THE RAT"];
+        case "CATS_EVEN": return ["PRESS WHEN", "CATS ARE EVEN"];
+        case "CATS_EARLIER": return ["PRESS ONCE FOR", "EACH EARLIER CAT"];
+        case "NEXT_LIE": return ["READ EVERYTHING", "DO NOT PRESS"];
+        case "RESPECT": return ["PRESS ONCE"];
+        case "KEEP_PRESSING": return ["KEEP PRESSING"];
+        case "HALF_TIME": return ["PRESS AFTER", "HALF TIME"];
+        case "MORE_THAN_CORNERS": return [`PRESS ${s.weirdCorners + 1}+`, "TIMES"];
+        case "MEMORY_SHOW": return ["REMEMBER", "THE NUMBER"];
+        case "MEMORY_CHECK": return ["EVEN = PRESS", "ODD = WAIT"];
+        case "CLOCK": return [`PRESS ${s.clockHour} TIMES`];
+        case "FINAL": return ["PRESS TO", "ASCEND"];
+      }
+    };
+
+    const drawButton = (c: Command | null, labelOverride?: string) => {
       const y = BUTTON_Y + (s.buttonDown ? 4 : 0);
       const glow = s.buttonDown ? "#aaffd0" : "#00ff59";
       const grd = ctx.createRadialGradient(BUTTON_X - 23, y - 24, 6, BUTTON_X, y, BUTTON_R + 30);
@@ -1061,11 +1086,20 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       ctx.arc(BUTTON_X, y, BUTTON_R - 7, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.fillStyle = "#03210d";
-      ctx.font = "950 18px Inter,system-ui,sans-serif";
+      const lines = labelOverride ? [labelOverride] : buttonInstruction(c);
+      const fontSize = lines.length === 1 ? 22 : lines.length === 2 ? 18 : 13;
+      const lineGap = fontSize + 5;
+      const startY = y - ((lines.length - 1) * lineGap) / 2 + 8;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(label, BUTTON_X, y + 1);
+      ctx.fillStyle = "#d8ffe4";
+      ctx.font = "800 8px Inter,system-ui,sans-serif";
+      ctx.fillText("RULE", BUTTON_X, y - BUTTON_R * 0.56);
+      ctx.fillStyle = "#03210d";
+      ctx.font = `950 ${fontSize}px Inter,system-ui,sans-serif`;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], BUTTON_X, startY + i * lineGap);
+      }
 
       ctx.fillStyle = "#c8ffda70";
       ctx.font = "800 8px Inter,system-ui,sans-serif";
@@ -1366,10 +1400,11 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           text("PRESS = PRESS • WAIT = WAIT", BUTTON_X, 390, 10, "#c8d8cf", 800);
           break;
         case "RAT_CUE":
-          text("UN RAT VA ARRIVER À DROITE", BUTTON_X, 325, 15, "#dfffe8", 800);
-          text("PRESSE LE RAT, PAS LE BOUTON", BUTTON_X, 365, 13, "#65ff9e", 900);
           if (s.ratVisible) drawRat();
-          else text("ATTENDS...", BUTTON_X, 430, 13, "#b8cfc2", 800);
+          else {
+            text("RAT INCOMING", BUTTON_X, 350, 18, "#ffcf73", 900);
+            text("WAIT FOR IT", BUTTON_X, 385, 12, "#b8cfc2", 800);
+          }
           break;
         case "CATS_EVEN":
           text("LES CHATS VONT ARRIVER", BUTTON_X, 300, 14, "#65ff9e", 900);
@@ -1487,7 +1522,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
       if (s.phase === "INTRO") {
         drawIntro();
-        drawButton("START");
+        drawButton(null, "START");
       } else if (s.phase === "FAIL") {
         drawFail();
       } else if (s.phase === "END") {
@@ -1497,7 +1532,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         if (c) drawCommand(c);
         drawParticles();
         drawTimer();
-        drawButton(c?.kind === "DONT" || c?.kind === "WAIT" || c?.kind === "QUICK_DONT" ? "DON'T" : "PRESS");
+        drawButton(c);
         text(s.phaseLabel, BUTTON_X, 535, 9, s.phaseLabel === "RELEASE NOW" ? "#ffcf73" : "#7ae99b", 900);
         if (s.feedbackT > 0) {
           ctx.globalAlpha = clamp(s.feedbackT / 0.65, 0, 1);
@@ -1541,10 +1576,6 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       const x = (e.clientX - rect.left - ox) / scale;
       const y = (e.clientY - rect.top - oy) / scale;
 
-      if (s.phase === "COMMAND" && current()?.kind === "RAT_CUE" && ratHit(x, y)) {
-        onPress(x, y);
-        return;
-      }
       onPress(x, y);
     };
 
@@ -1561,12 +1592,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       const target = e.target as HTMLElement | null;
       if (target?.closest?.("button,input,textarea,select,a")) return;
       e.preventDefault();
-      if (s.phase === "COMMAND" && current()?.kind === "RAT_CUE" && s.ratVisible) {
-        const { x, y } = ratPosition();
-        onPress(x, y);
-      } else {
-        onPress(BUTTON_X, BUTTON_Y);
-      }
+      onPress(BUTTON_X, BUTTON_Y);
     };
 
     const keyUp = (e: KeyboardEvent) => {
