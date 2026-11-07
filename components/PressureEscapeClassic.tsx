@@ -82,6 +82,7 @@ type GameState = {
   humanAnswer: boolean | null;
   inputLockedUntil: number;
   holdStart: number | null;
+  commandStartAt: number;
   phaseLabel: string;
   combo: number;
   maxCombo: number;
@@ -151,6 +152,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       humanAnswer: null,
       inputLockedUntil: 0,
       holdStart: null,
+      commandStartAt: 0,
       phaseLabel: "READY",
       combo: 0,
       maxCombo: 0,
@@ -243,7 +245,6 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       s.currentCats = cats;
       s.clockHour = clockHour;
       s.humanAnswer = null;
-      s.lieArmed = false;
 
       const groups: Command[][] = [
         [
