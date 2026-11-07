@@ -84,6 +84,11 @@ type GameState = {
   inputLockedUntil: number;
   holdStart: number | null;
   phaseLabel: string;
+  combo: number;
+  maxCombo: number;
+  feedback: string;
+  feedbackT: number;
+  totalClears: number;
 };
 
 const W = 390;
@@ -150,7 +155,15 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       inputLockedUntil: 0,
       holdStart: null,
       phaseLabel: "READY",
+      combo: 0,
+      maxCombo: 0,
+      feedback: "",
+      feedbackT: 0,
+      totalClears: 0,
     };
+
+    type Particle = { x:number; y:number; vx:number; vy:number; life:number; maxLife:number; size:number; };
+    const particles: Particle[] = [];
 
     try {
       s.best = Number(localStorage.getItem("sg-best-pressure")) || 0;
@@ -192,7 +205,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       const c = s.commands[s.commandIndex];
       const remaining = c ? Math.max(0, c.duration - s.commandT) : 0;
       const speedBonus = Math.min(140, Math.round(remaining * 7));
-      s.score += base + speedBonus;
+      const multiplier = 1 + Math.min(1.5, s.combo * 0.05);
+      s.score += Math.round((base + speedBonus) * multiplier);
       scoreRef.current?.(s.score);
     };
 
@@ -376,17 +390,45 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       if (s.phase !== "COMMAND") return;
       s.phase = "FAIL";
       s.failedText = text;
+      s.combo = 0;
+      s.feedback = "RUN OVER";
+      s.feedbackT = 1.2;
       s.failFlash = 0.9;
       saveBest();
       tone(95, 0.28, 0.05);
       buzz([20, 28, 60]);
     };
 
+    const spawnBurst = (count = 16, power = 1) => {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const speed = (80 + Math.random() * 170) * power;
+        const life = 0.35 + Math.random() * 0.45;
+        particles.push({
+          x: BUTTON_X + (Math.random() - 0.5) * 24,
+          y: BUTTON_Y + (Math.random() - 0.5) * 24,
+          vx: Math.cos(a) * speed,
+          vy: Math.sin(a) * speed,
+          life,
+          maxLife: life,
+          size: 2 + Math.random() * 4,
+        });
+      }
+    };
+
     const finishCommand = (bonus = 0) => {
       s.previousRequiredPress = s.lastRequiredPress;
+      s.combo += 1;
+      s.maxCombo = Math.max(s.maxCombo, s.combo);
+      s.totalClears += 1;
+      const active = current();
+      const ratio = active ? s.commandT / active.duration : 0;
+      s.feedback = ratio < 0.34 ? "PERFECT" : ratio > 0.82 ? "CLUTCH" : "CLEAR";
+      s.feedbackT = 0.65;
+      spawnBurst(ratio < 0.34 ? 28 : 18, ratio < 0.34 ? 1.25 : 1);
       addScore(bonus);
       s.successFlash = 0.45;
-      tone(660, 0.07, 0.035);
+      tone(ratio < 0.34 ? 820 : 660, 0.07, 0.035);
       buzz(10);
       if (s.commandIndex >= s.commands.length - 1) {
         s.phase = "END";
@@ -488,6 +530,12 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       s.currentCats = s.memoryCats;
       s.memoryNumber = Math.floor(Math.random() * 90) + 10;
       s.clockHour = 1 + Math.floor(Math.random() * 12);
+      s.combo = 0;
+      s.maxCombo = 0;
+      s.feedback = "";
+      s.feedbackT = 0;
+      s.totalClears = 0;
+      particles.length = 0;
       s.inputLockedUntil = performance.now() + 350;
       s.commands = buildCommands();
       setupCommand();
@@ -618,7 +666,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           fail("LOOK FIRST");
           return;
         case "MEMORY_CHECK":
-          finishCommand(100);
+          if (s.memoryNumber % 2 === 0) finishCommand(120);
+          else fail("MEMORY TRAP");
           return;
         case "CLOCK":
           if (s.presses > s.clockHour) fail("TOO MANY");
@@ -803,7 +852,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             finishCommand(100);
             return;
           case "MEMORY_CHECK":
-            finishCommand(100);
+            if (s.memoryNumber % 2 === 1 && s.presses === 0) finishCommand(120);
+            else fail("MEMORY TRAP");
             return;
           case "FINAL":
             fail("TOO LATE");
@@ -830,6 +880,21 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(value, x, y);
+    };
+
+    const drawParticles = () => {
+      for (const p of particles) {
+        const alpha = clamp(p.life / p.maxLife, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#7dffad";
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = "#2aff72";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * alpha + 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     };
 
     const drawGlowDot = (x: number, y: number, r: number, fill: string) => {
@@ -931,6 +996,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
 
       ctx.restore();
 
+      text(Math.max(0, c.duration - s.commandT).toFixed(1) + "s", BUTTON_X, BUTTON_Y - 132, 15, p < 0.2 ? "#ff6b7f" : "#c8f6d8", 950);
       if (p < 0.2) {
         ctx.globalAlpha = 0.25 + Math.sin(s.commandT * 18) * 0.08;
         ctx.fillStyle = "#ff2f4d";
@@ -952,6 +1018,13 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       ctx.save();
       ctx.shadowBlur = 34;
       ctx.shadowColor = glow;
+      ctx.globalAlpha = 0.88;
+      ctx.strokeStyle = "#55ff9a55";
+      ctx.lineWidth = 2 + Math.sin(performance.now() / 170) * 0.8;
+      ctx.beginPath();
+      ctx.arc(BUTTON_X, y, BUTTON_R + 12 + Math.sin(performance.now() / 220) * 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
       ctx.fillStyle = grd;
       ctx.beginPath();
       ctx.arc(BUTTON_X, y, BUTTON_R, 0, Math.PI * 2);
@@ -1312,8 +1385,9 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           }
           break;
         case "MEMORY_CHECK":
-          text("TU TE SOUVIENS DU NOMBRE ?", BUTTON_X, 345, 17, "#fff", 900);
-          text("PRESS = OUI", BUTTON_X, 395, 18, "#65ff9e", 950);
+          text("LE NOMBRE ÉTAIT-IL PAIR ?", BUTTON_X, 335, 18, "#fff", 900);
+          text("PAIR = PRESS • IMPAIR = WAIT", BUTTON_X, 382, 12, "#65ff9e", 900);
+          text("MÉMOIRE > RÉFLEXE", BUTTON_X, 420, 10, "#b8d3c2", 800);
           break;
         case "FINAL":
           text("PRESS TO ASCEND", BUTTON_X, 350, 25, "#65ff9e", 950);
@@ -1329,6 +1403,8 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       text("LE CERCLE AUTOUR DU BOUTON EST LE TIMER.", BUTTON_X, 356, 11, "#b9d0c1", 750);
       text("LES VISUELS PIÈGES SONT TOUJOURS ANNONCÉS.", BUTTON_X, 380, 11, "#b9d0c1", 750);
       text("UNE ERREUR = RUN TERMINÉ.", BUTTON_X, 404, 11, "#ff9f9f", 800);
+      text("CHAQUE CLEAR AUGMENTE TON COMBO.", BUTTON_X, 428, 10, "#70ffa5", 850);
+      text("TAPE POUR ENTRER.", BUTTON_X, 470, 12, "#ffffff", 950);
     };
 
     const drawFail = () => {
@@ -1351,6 +1427,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       text("SCORE", BUTTON_X, 350, 9, "#7db893", 800);
       text(String(s.score), BUTTON_X, 390, 38, "#ffffff", 950);
       text("MEILLEUR  " + String(s.best), BUTTON_X, 452, 11, "#65ff9e", 850);
+      text("MAX COMBO ×" + String(s.maxCombo), BUTTON_X, 477, 11, "#8ed8ab", 850);
       text("TAPE POUR REJOUER", BUTTON_X, 510, 13, "#ffffff", 900);
     };
 
@@ -1359,6 +1436,10 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       text(String(Math.max(0, s.commandIndex + 1)).padStart(2, "0") + " / " + String(s.commands.length).padStart(2, "0"), 103, 36, 11, "#bde8cb", 850);
       drawRounded(198, 18, 174, 36, 15, "#020706cc", "#0cff6a20");
       text("SCORE " + String(s.score), 285, 36, 11, "#bde8cb", 850);
+      if (s.combo > 1) {
+        drawRounded(132, 61, 126, 24, 12, "#092615dd", "#35ff7828");
+        text("COMBO ×" + String(s.combo), 195, 73, 10, "#71ffab", 950);
+      }
     };
 
     const draw = () => {
@@ -1381,9 +1462,15 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       } else {
         const c = current();
         if (c) drawCommand(c);
+        drawParticles();
         drawTimer();
         drawButton(c?.kind === "DONT" || c?.kind === "WAIT" || c?.kind === "QUICK_DONT" ? "DON'T" : "PRESS");
         text(s.phaseLabel, BUTTON_X, 535, 9, s.phaseLabel === "RELEASE NOW" ? "#ffcf73" : "#7ae99b", 900);
+        if (s.feedbackT > 0) {
+          ctx.globalAlpha = clamp(s.feedbackT / 0.65, 0, 1);
+          text(s.feedback, BUTTON_X, 210 - (0.65 - s.feedbackT) * 24, 26, s.feedback === "PERFECT" ? "#8dffb6" : "#ffffff", 950);
+          ctx.globalAlpha = 1;
+        }
       }
 
       if (s.successFlash > 0) {
@@ -1448,6 +1535,16 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       if (s.phase === "COMMAND") updateCommand(dt);
       s.successFlash = Math.max(0, s.successFlash - dt);
       s.failFlash = Math.max(0, s.failFlash - dt);
+      s.feedbackT = Math.max(0, s.feedbackT - dt);
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= Math.pow(0.02, dt);
+        p.vy += 170 * dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
       draw();
 
       raf = requestAnimationFrame(loop);
