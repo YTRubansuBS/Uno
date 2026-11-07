@@ -778,52 +778,52 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           case "DONT":
           case "QUICK_DONT":
           case "WAIT":
-            finishCommand(90);
+            finishCommand(90, false);
             return;
           case "COUNT_WORDS":
           case "MATH_COUNT":
           case "RANDOM_COUNT":
           case "SPIDER_COUNT":
-            if (s.presses === countTarget(c)) finishCommand(120);
+            if (s.presses === countTarget(c)) finishCommand(120, true);
             else fail("WRONG COUNT");
             return;
           case "SPIDER_DONT":
-            finishCommand(100);
+            finishCommand(100, false);
             return;
           case "RELEASE_SPIDER":
             fail(s.buttonDown ? "RELÂCHE !" : "DIDN'T RELEASE");
             return;
           case "LESS_TWO":
-            if (s.presses < 2) finishCommand(110);
+            if (s.presses < 2) finishCommand(110, s.presses > 0);
             else fail("TOO MANY");
             return;
           case "MORE_FIVE":
-            if (s.presses > 5) finishCommand(110);
+            if (s.presses > 5) finishCommand(110, true);
             else fail("NOT ENOUGH");
             return;
           case "HOLD":
-            if (s.buttonDown) finishCommand(140);
+            if (s.buttonDown) finishCommand(140, true);
             else fail("NOT HELD");
             return;
           case "HUMAN":
             if (s.presses === 0) {
               s.humanAnswer = false;
-              finishCommand(110);
+              finishCommand(110, false);
             } else {
-              finishCommand(110);
+              finishCommand(110, true);
             }
             return;
           case "ROBOT":
-            if (s.humanAnswer === true && s.presses === 0) finishCommand(110);
-            else if (s.humanAnswer === false && s.presses > 0) finishCommand(110);
+            if (s.humanAnswer === true && s.presses === 0) finishCommand(110, false);
+            else if (s.humanAnswer === false && s.presses > 0) finishCommand(110, true);
             else fail("INCONSISTENT");
             return;
           case "DOUBLE":
-            if (s.presses === 2) finishCommand(110);
+            if (s.presses === 2) finishCommand(110, true);
             else fail("NOT TWO");
             return;
           case "CORNERS":
-            if (s.presses === s.shapeNeed) finishCommand(150);
+            if (s.presses === s.shapeNeed) finishCommand(150, s.shapeNeed > 0);
             else fail("WRONG CORNERS");
             return;
           case "HOLD_LONG":
@@ -831,7 +831,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             else fail("LET GO");
             return;
           case "SAME_AS_LAST":
-            if (s.previousRequiredPress === false) finishCommand(120);
+            if (s.previousRequiredPress === false) finishCommand(120, false);
             else fail("THIS ONE WAS PRESS");
             return;
           case "RAT_CUE":
@@ -844,7 +844,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             else fail("WRONG CAT ANSWER");
             return;
           case "CATS_EARLIER":
-            if (s.presses === s.memoryCats) finishCommand(150);
+            if (s.presses === s.memoryCats) finishCommand(150, s.memoryCats > 0);
             else fail("WRONG MEMORY COUNT");
             return;
           case "NEXT_LIE":
@@ -865,7 +865,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             else fail("KEEP PRESSING");
             return;
           case "CLOCK":
-            if (s.presses === s.clockHour) finishCommand(140);
+            if (s.presses === s.clockHour) finishCommand(140, true);
             else fail("WRONG TIME");
             return;
           case "MEMORY_SHOW":
