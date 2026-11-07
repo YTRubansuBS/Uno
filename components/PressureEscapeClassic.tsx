@@ -5,8 +5,8 @@ import { useEffect, useRef } from "react";
 type Props = { color: string; onScore?: (n: number) => void };
 
 type Phase =
-  | "INTRO" | "TIMING" | "SHAPE" | "HOLD" | "NUMBER" | "CATS"
-  | "SPIDER" | "WAIT" | "DOUBLE" | "DONT" | "RAT" | "END" | "FAIL";
+  | "INTRO" | "TIMING" | "SHAPE_INTRO" | "SHAPE" | "HOLD" | "NUMBER_INTRO" | "NUMBER" | "CATS_INTRO" | "CATS" | "CATS_PRESS"
+  | "SPIDER_INTRO" | "SPIDER" | "WAIT" | "DOUBLE" | "DONT" | "RAT" | "END" | "FAIL";
 
 type Shape = "STAR" | "SQUARE" | "TRIANGLE" | "CIRCLE";
 
@@ -71,7 +71,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       save();sound(120,.14);vibrate([18,24,36]);
     };
 
-    const challenges:Phase[]=["TIMING","SHAPE","HOLD","NUMBER","CATS","SPIDER","WAIT","DOUBLE","DONT"];
+    const challenges:Phase[]=["TIMING","SHAPE_INTRO","HOLD","NUMBER_INTRO","CATS_INTRO","SPIDER_INTRO","WAIT","DOUBLE","DONT"];
     const pickNext=()=>{
       const available=challenges.filter((p)=>p!==s.lastChallenge);
       const phase=available[Math.floor(Math.random()*available.length)];
@@ -90,16 +90,18 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       if(s.round>=10){s.phase="RAT";s.phaseT=0;s.timer=3.4;s.buttonDown=false;return;}
       const phase=pickNext();
       s.phase=phase;s.phaseT=0;s.buttonDown=false;s.pressures=0;s.flash=0;s.msg="";s.msgT=0;
-      s.timer=phase==="TIMING"||phase==="SPIDER"?2.4:phase==="HOLD"?1.8:phase==="WAIT"?2.8:phase==="DOUBLE"?1.8:phase==="DONT"?2.2:3.4;
-      if(phase==="SHAPE"){
+      s.timer=phase==="TIMING"?2.4:phase==="HOLD"?1.8:phase==="WAIT"?2.8:phase==="DOUBLE"?1.8:phase==="DONT"?2.2:phase==="SHAPE_INTRO"||phase==="NUMBER_INTRO"||phase==="CATS_INTRO"||phase==="SPIDER_INTRO"?1.25:3.4;
+      if(phase==="SHAPE_INTRO"){
         const pool:Shape[]=["STAR","SQUARE","TRIANGLE"];
         s.shape=pool[Math.floor(Math.random()*pool.length)];
         s.shapeNeed=shapeData(s.shape).need;
       }
-      if(phase==="NUMBER"){s.number=2+Math.floor(Math.random()*8);s.memoryVisible=true;}
-      if(phase==="CATS"){s.cats=0;s.catsShown=0;}
+      if(phase==="NUMBER_INTRO"){s.number=2+Math.floor(Math.random()*8);s.memoryVisible=true;}
+      if(phase==="CATS_INTRO"){s.cats=0;s.catsShown=0;}
       sound(320,.04);
     };
+
+    const totalCats=(round:number)=>3+((round*7)%4);
 
     const shapeData=(shape:Shape)=>{
       if(shape==="STAR")return{label:"★",need:10};
@@ -153,18 +155,18 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         }
         if(phase==="HOLD"){return;}
         if(phase==="NUMBER"){
+          // The number screen is an observation step: pressing confirms you remembered it.
           addScore(160);next();return;
         }
-        if(phase==="CATS"){
+        if(phase==="CATS_PRESS"){
           const target=s.cats;
           s.pressures++;
           if(s.pressures===target){addScore(220);next();return;}
           if(s.pressures>target)fail("TOO MANY");return;
         }
         if(phase==="SPIDER"){
-          const p=clamp(s.phaseT/s.timer,0,1);
-          if(p>.5){addScore(240);next();return;}
-          fail("TOO SOON");return;
+          // The spider is explicitly a NO-CLICK distraction. Never kill the player for ignoring it.
+          fail("NEVER PRESS");return;
         }
       }else{
         s.buttonDown=false;
@@ -190,8 +192,13 @@ export default function PressureEscapeClassic({color,onScore}:Props){
     const update=(dt:number)=>{
       s.t+=dt;s.phaseT+=dt;s.flash=Math.max(0,s.flash-dt);s.shake=Math.max(0,s.shake-dt);s.msgT=Math.max(0,s.msgT-dt);
 
-      if(["TIMING","SPIDER","WAIT","DOUBLE","DONT","HOLD"].includes(s.phase) && s.phaseT>s.timer){
+      if(["TIMING","SPIDER","WAIT","DOUBLE","DONT","HOLD","SHAPE_INTRO","NUMBER_INTRO","CATS_INTRO","SPIDER_INTRO"].includes(s.phase) && s.phaseT>s.timer){
         if(s.phase==="WAIT"||s.phase==="DONT"){addScore(110);next();}
+        else if(s.phase==="SHAPE_INTRO"){s.phase="SHAPE";s.phaseT=0;s.timer=3.4;s.pressures=0;}
+        else if(s.phase==="NUMBER_INTRO"){s.phase="NUMBER";s.phaseT=0;s.timer=3.4;s.memoryVisible=true;}
+        else if(s.phase==="CATS_INTRO"){s.phase="CATS";s.phaseT=0;s.timer=3.4;s.cats=0;s.catsShown=0;s.pressures=0;}
+        else if(s.phase==="SPIDER_INTRO"){s.phase="SPIDER";s.phaseT=0;s.timer=1.8;}
+        else if(s.phase==="SPIDER"){addScore(240);next();}
         else fail("TOO LATE");
       }
       s.timer=Math.max(0,s.timer);
@@ -203,6 +210,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       if(s.phase==="SHAPE"&&s.phaseT>3.4)fail("TOO SLOW");
 
       if(s.phase==="HOLD"&&s.phaseT>1.8&&!s.buttonDown)fail("LET GO TOO SOON");
+      if(s.phase==="CATS_PRESS"&&s.phaseT>s.timer)fail("TOO SLOW");
 
 
       if(s.phase==="CATS"){
@@ -212,7 +220,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       }
 
       if(s.phase==="NUMBER"&&s.phaseT>1.15)s.memoryVisible=false;
-      if(s.phase==="CATS"&&s.catsShown>=3 && s.phaseT>3.4)fail("TOO SLOW");
+      if(s.phase==="CATS"&&s.catsShown>=totalCats(s.round) && s.phaseT>2.8){s.phase="CATS_PRESS";s.phaseT=0;s.timer=3.2;s.pressures=0;}
     };
 
     const rr=(x:number,y:number,w:number,h:number,r:number,fill:string)=>{
@@ -305,9 +313,14 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         ctx.fillStyle="#63f6b5";ctx.fillRect(bx+bw*.5,330,bw*.22,22);
         ctx.fillStyle="#ffffff";ctx.fillRect(bx+bw*p-2,326,4,30);
         drawButton("PRESS");
+      }else if(s.phase==="SHAPE_INTRO"){
+        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("NEXT: COUNT THE CORNERS",W/2,235);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Je vais montrer une forme. Compte ses coins.",W/2,264);
+        ctx.fillStyle="#63f6b5";ctx.font="900 14px Inter,system-ui";ctx.fillText("PUIS APPUIE POUR CHAQUE COIN",W/2,385);
+        drawButton("READY");
       }else if(s.phase==="SHAPE"){
         ctx.fillStyle="#fff";ctx.font="950 29px Inter,system-ui";ctx.fillText("COUNT THE CORNERS",W/2,235);
-        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Appuie autant de fois qu'il y a de coins.",W/2,264);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Maintenant compte. Pas besoin de te presser.",W/2,264);
         drawShape(s.shape);drawButton(String(s.pressures));
       }else if(s.phase==="HOLD"){
         ctx.fillStyle="#fff";ctx.font="950 31px Inter,system-ui";ctx.fillText("HOLD",W/2,245);
@@ -315,17 +328,27 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         const p=clamp(s.phaseT/1.8,0,1);
         rr(55,335,280,10,5,"#ffffff10");ctx.fillStyle="#63f6b5";ctx.fillRect(55,335,280*.75,10);ctx.fillStyle="#fff";ctx.fillRect(55+280*p-2,330,4,20);
         drawButton(s.buttonDown?"HOLDING":"PRESS");
+      }else if(s.phase==="NUMBER_INTRO"){
+        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("NEXT: MEMORY",W/2,240);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Je vais montrer un nombre. Mémorise-le.",W/2,269);
+        ctx.fillStyle="#63f6b5";ctx.font="900 14px Inter,system-ui";ctx.fillText("NE CLIQUE PAS AVANT DE L'AVOIR VU",W/2,390);
+        drawButton("READY");
       }else if(s.phase==="NUMBER"){
         ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("REMEMBER THIS",W/2,240);
         ctx.fillStyle=s.memoryVisible?"#63f6b5":"#ffffff20";ctx.font="950 86px Inter,system-ui";ctx.fillText(s.memoryVisible?String(s.number):"?",W/2,430);
         ctx.fillStyle="#ffffff70";ctx.font="700 11px Inter,system-ui";ctx.fillText(s.memoryVisible?"MÉMORISE LE NOMBRE":"PLUS TARD, ON VERRA SI TU T'EN SOUVIENS",W/2,474);
         drawButton("OK");
+      }else if(s.phase==="CATS_INTRO"){
+        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("NEXT: CATS",W/2,235);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Je vais montrer des chats. COMPTE-LES.",W/2,264);
+        ctx.fillStyle="#63f6b5";ctx.font="900 14px Inter,system-ui";ctx.fillText("APRÈS, TU DEVRAS LES RECOMPTER",W/2,390);
+        drawButton("READY");
       }else if(s.phase==="CATS"){
-        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("MEMORY",W/2,235);
-        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Regarde bien les chats.",W/2,264);
+        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("COUNT THEM",W/2,235);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Ne clique pas. Compte seulement.",W/2,264);
         for(let i=0;i<s.catsShown;i++){ctx.font="46px system-ui";ctx.fillText("🐱",70+i*80,385)}
-        if(s.catsShown>=4){ctx.fillStyle="#63f6b5";ctx.font="850 13px Inter,system-ui";ctx.fillText("UN APPUI POUR CHAQUE CHAT",W/2,450)}
-        drawButton(String(s.pressures));
+        ctx.fillStyle="#63f6b5";ctx.font="850 13px Inter,system-ui";ctx.fillText("COMPTE : "+s.catsShown+" / "+totalCats(s.round),W/2,450);
+        drawButton("WAIT");
       }else if(s.phase==="WAIT"){
         ctx.fillStyle="#fff";ctx.font="950 29px Inter,system-ui";ctx.fillText("WAIT.",W/2,235);
         ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Ne touche à rien. Attends la fin du timer.",W/2,264);
@@ -340,12 +363,22 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Le bouton est là pour te faire réagir.",W/2,264);
         ctx.fillStyle="#ff637f";ctx.font="950 15px Inter,system-ui";ctx.fillText("DON'T TOUCH IT.",W/2,390);
         drawButton("NO");
+      }else if(s.phase==="CATS_PRESS"){
+        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("NOW PRESS FOR EACH CAT",W/2,235);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Tu dois faire exactement "+s.cats+" pressions.",W/2,264);
+        ctx.fillStyle="#63f6b5";ctx.font="900 16px Inter,system-ui";ctx.fillText(s.pressures+" / "+s.cats,W/2,390);
+        drawButton(String(s.pressures));
+      }else if(s.phase==="SPIDER_INTRO"){
+        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("NEXT: DISTRACTION",W/2,230);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Une araignée va apparaître.",W/2,258);
+        ctx.fillStyle="#ff637f";ctx.font="950 16px Inter,system-ui";ctx.fillText("SURTOUT : NE CLIQUE PAS.",W/2,390);
+        ctx.fillStyle="#ffffff70";ctx.font="700 11px Inter,system-ui";ctx.fillText("Ignore-la et attends simplement la fin.",W/2,420);
+        drawButton("READY");
       }else if(s.phase==="SPIDER"){
-        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("PRESS AFTER HALF-TIME",W/2,230);
-        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Ne te laisse pas distraire.",W/2,258);
+        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("IGNORE THE SPIDER",W/2,230);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Ne clique surtout pas. Le piège passe tout seul.",W/2,258);
         ctx.font="68px system-ui";ctx.fillText("🕷️",W/2,370);
-        const p=clamp(s.phaseT/2,0,1);rr(55,415,280,10,5,"#ffffff10");ctx.fillStyle="#63f6b5";ctx.fillRect(55+140,411,56,18);ctx.fillStyle="#fff";ctx.fillRect(55+280*p-2,406,4,28);
-        drawButton("PRESS");
+        drawButton("DON'T");
       }else if(s.phase==="RAT"){
         ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("DO NOT PRESS THE BUTTON",W/2,225);
         ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Trouve ce qu'il faut vraiment presser.",W/2,254);
