@@ -456,6 +456,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       }
       if (c.kind === "CATS_EVEN") {
         s.currentCats = countCatsForRun();
+        s.memoryCats = s.currentCats;
       }
       if (c.kind === "CATS_EARLIER") {
         s.currentCats = s.memoryCats;
@@ -631,6 +632,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
     };
 
     const onRelease = () => {
+      if (performance.now() < s.inputLockedUntil) return;
       if (s.phase !== "COMMAND") return;
       const c = current();
       if (!c) return;
@@ -742,14 +744,17 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             }
             return;
           case "ROBOT":
-            if (s.humanAnswer === false && s.presses === 0) finishCommand(110);
-            else if (s.humanAnswer === true && s.presses === 0) finishCommand(110);
-            else if (s.presses > 0 && s.humanAnswer !== false) fail("INCONSISTENT");
-            else finishCommand(110);
+            if (s.humanAnswer === true && s.presses === 0) finishCommand(110);
+            else if (s.humanAnswer === false && s.presses > 0) finishCommand(110);
+            else fail("INCONSISTENT");
             return;
           case "DOUBLE":
             if (s.presses === 2) finishCommand(110);
             else fail("NOT TWO");
+            return;
+          case "CORNERS":
+            if (s.presses === s.shapeNeed) finishCommand(150);
+            else fail("WRONG CORNERS");
             return;
           case "HOLD_LONG":
             if (s.buttonDown) {
