@@ -34,7 +34,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       failures:0,presses:0,shape:null as Shape|null,shapeNeed:0,
       number:5,cats:0,catsShown:0,memoryVisible:true,
       flash:0,shake:0,msg:"",msgT:0,buttonDown:false,
-      finished:false, round:0, lastChallenge:"", timer:3.2, targetPresses:0, waitPassed:false
+      finished:false, round:0, lastChallenge:"", timer:3.2, targetPresses:0, waitPassed:false, timerSeg:40
     };
 
     try{s.best=Number(localStorage.getItem("sg-best-pressure"))||0}catch{}
@@ -80,7 +80,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
     };
 
     const startRun=()=>{
-      s.runScore=0;s.pressures=0;s.failures=0;s.phase="TIMING";s.phaseT=0;s.flash=0;s.shake=0;s.msg="";s.number=2+Math.floor(Math.random()*8);
+      s.runScore=0;s.pressures=0;s.failures=0;s.phase="TIMING";s.phaseT=0;s.flash=0;s.shake=0;s.msg="";s.number=2+Math.floor(Math.random()*8);s.timerSeg=40;
       s.cats=0;s.catsShown=0;s.memoryVisible=true;s.finished=false;s.round=0;s.lastChallenge="TIMING";s.timer=2.8;
       sound(260,.06);vibrate(15);
     };
@@ -89,8 +89,8 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       s.round++;
       if(s.round>=10){s.phase="RAT";s.phaseT=0;s.timer=3.4;s.buttonDown=false;return;}
       const phase=pickNext();
-      s.phase=phase;s.phaseT=0;s.buttonDown=false;s.pressures=0;s.flash=0;s.msg="";s.msgT=0;
-      s.timer=phase==="TIMING"?2.4:phase==="HOLD"?1.8:phase==="WAIT"?2.8:phase==="DOUBLE"?1.8:phase==="DONT"?2.2:phase==="SHAPE_INTRO"||phase==="NUMBER_INTRO"||phase==="CATS_INTRO"||phase==="SPIDER_INTRO"?1.25:3.4;
+      s.phase=phase;s.phaseT=0;s.buttonDown=false;s.pressures=0;s.flash=0;s.msg="";s.msgT=0;s.timerSeg=40;
+      s.timer=phase==="TIMING"?20:phase==="HOLD"?6:phase==="WAIT"?4.5:phase==="DOUBLE"?6:phase==="DONT"?3:phase==="SHAPE_INTRO"||phase==="NUMBER_INTRO"||phase==="CATS_INTRO"||phase==="SPIDER_INTRO"?1.25:phase==="CATS_PRESS"?9:phase==="NUMBER"?6:phase==="SPIDER"?4.5:3.4;
       if(phase==="SHAPE_INTRO"){
         const pool:Shape[]=["STAR","SQUARE","TRIANGLE"];
         s.shape=pool[Math.floor(Math.random()*pool.length)];
@@ -132,9 +132,9 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       if(down){
         s.buttonDown=true;
         if(phase==="TIMING"){
-          const p=clamp(s.phaseT/1.8,0,1);
-          if(p>.52&&p<.74){addScore(120);s.flash=.18;next();return;}
-          fail(p<.52?"TOO SOON":"TOO LATE");return;
+          if(s.phaseT<10){fail("TOO SOON");return;}
+          if(s.phaseT<=20){addScore(120);s.flash=.18;next();return;}
+          fail("TOO LATE");return;
         }
         if(phase==="SHAPE"){
           s.pressures++;
@@ -194,14 +194,20 @@ export default function PressureEscapeClassic({color,onScore}:Props){
 
       if(["TIMING","SPIDER","WAIT","DOUBLE","DONT","HOLD","SHAPE_INTRO","NUMBER_INTRO","CATS_INTRO","SPIDER_INTRO"].includes(s.phase) && s.phaseT>s.timer){
         if(s.phase==="WAIT"||s.phase==="DONT"){addScore(110);next();}
-        else if(s.phase==="SHAPE_INTRO"){s.phase="SHAPE";s.phaseT=0;s.timer=3.4;s.pressures=0;}
+        else if(s.phase==="SHAPE_INTRO"){s.phase="SHAPE";s.phaseT=0;s.timer=s.shape==="STAR"?15:s.shape==="SQUARE"?9:7.2;s.pressures=0;}
         else if(s.phase==="NUMBER_INTRO"){s.phase="NUMBER";s.phaseT=0;s.timer=3.4;s.memoryVisible=true;}
         else if(s.phase==="CATS_INTRO"){s.phase="CATS";s.phaseT=0;s.timer=3.4;s.cats=0;s.catsShown=0;s.pressures=0;}
-        else if(s.phase==="SPIDER_INTRO"){s.phase="SPIDER";s.phaseT=0;s.timer=1.8;}
+        else if(s.phase==="SPIDER_INTRO"){s.phase="SPIDER";s.phaseT=0;s.timer=4.5;s.timerSeg=40;}
         else if(s.phase==="SPIDER"){addScore(240);next();}
-        else fail("TOO LATE");
+        else if(s.phase==="HOLD"){
+          if(s.buttonDown){addScore(180);next();}else fail("YOU LET GO");
+        }else fail("TOO LATE");
       }
       s.timer=Math.max(0,s.timer);
+      const timerTotal=s.phase==="TIMING"?20:s.timer;
+      const newSeg=Math.ceil(clamp(1-s.phaseT/Math.max(.1,timerTotal),0,1)*40);
+      if(newSeg<s.timerSeg && newSeg>=0){sound(520,.025);}
+      s.timerSeg=newSeg;
       if(s.phase==="SHAPE"&&s.phaseT<.5&&s.shape===null){
         const pool:Shape[]=["STAR","SQUARE","TRIANGLE","CIRCLE"];
         s.shape=pool[Math.floor(Math.random()*pool.length)];
@@ -209,7 +215,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       }
       if(s.phase==="SHAPE"&&s.phaseT>3.4)fail("TOO SLOW");
 
-      if(s.phase==="HOLD"&&s.phaseT>1.8&&!s.buttonDown)fail("LET GO TOO SOON");
+      if(s.phase==="HOLD"&&s.phaseT>s.timer && !s.buttonDown)fail("YOU LET GO");
       if(s.phase==="CATS_PRESS"&&s.phaseT>s.timer)fail("TOO SLOW");
 
 
@@ -220,7 +226,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       }
 
       if(s.phase==="NUMBER"&&s.phaseT>1.15)s.memoryVisible=false;
-      if(s.phase==="CATS"&&s.catsShown>=totalCats(s.round) && s.phaseT>2.8){s.phase="CATS_PRESS";s.phaseT=0;s.timer=3.2;s.pressures=0;}
+      if(s.phase==="CATS"&&s.catsShown>=totalCats(s.round) && s.phaseT>2.8){s.phase="CATS_PRESS";s.phaseT=0;s.timer=9;s.pressures=0;s.timerSeg=40;}
     };
 
     const rr=(x:number,y:number,w:number,h:number,r:number,fill:string)=>{
@@ -253,20 +259,30 @@ export default function PressureEscapeClassic({color,onScore}:Props){
 
     const drawTimerRing=()=>{
       if(["INTRO","FAIL","END"].includes(s.phase as string))return;
-      const cx=W/2,cy=585,r=112;
-      const total=Math.max(.1,s.phase==="HOLD"?1.8:s.timer);
-      const p=clamp(s.phaseT/total,0,1);
+      const cx=W/2,cy=585;
+      const total=Math.max(.1,s.phase==="TIMING"?20:s.timer);
+      const remaining=clamp(1-s.phaseT/total,0,1);
+      const segments=40;
+      const lit=Math.ceil(remaining*segments);
       ctx.save();
-      ctx.lineWidth=9;
-      ctx.lineCap="round";
-      ctx.strokeStyle="#ffffff12";
-      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
-      ctx.strokeStyle=p>.82?"#ff637f":"#63f6b5";
-      ctx.shadowBlur=16;ctx.shadowColor=p>.82?"#ff637f":"#63f6b5";
-      ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-p));ctx.stroke();
-      ctx.shadowBlur=0;
-      ctx.fillStyle="#ffffff75";ctx.font="900 10px Inter,system-ui";ctx.textAlign="center";
-      ctx.fillText((total-s.phaseT).toFixed(1)+"s",cx,cy-r-13);
+      for(let i=0;i<segments;i++){
+        const a=-Math.PI/2+(i/segments)*Math.PI*2;
+        const x=cx+Math.cos(a)*119;
+        const y=cy+Math.sin(a)*119;
+        ctx.save();
+        ctx.translate(x,y);
+        ctx.rotate(a+Math.PI/2);
+        const late=i>=lit;
+        ctx.fillStyle=late?\"#ffffff10\":(remaining<.18?\"#ff304f\":\"#00d84a\");
+        ctx.shadowBlur=late?0:8;
+        ctx.shadowColor=late?\"transparent\":(remaining<.18?\"#ff304f\":\"#00d84a\");
+        ctx.beginPath();ctx.roundRect(-5,-18,10,36,4);ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle="#ffffff55";
+      ctx.font="900 9px Inter,system-ui";
+      ctx.textAlign="center";
+      ctx.fillText(remaining<.18?"HURRY":"",cx,cy-137);
       ctx.restore();
     };
 
@@ -307,8 +323,10 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         drawButton("START");
       }else if(s.phase==="TIMING"){
         ctx.fillStyle="#fff";ctx.font="950 31px Inter,system-ui";ctx.fillText("PRESS AFTER HALF-TIME",W/2,245);
-        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Attends le bon moment.",W/2,274);
-        const bx=40,bw=310,p=clamp(s.phaseT/1.8,0,1);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("20 secondes. Appuie seulement après la moitié.",W/2,274);
+        ctx.fillStyle="#63f6b5";ctx.font="850 11px Inter,system-ui";ctx.fillText("UNE ARAIGNÉE PEUT APPARAÎTRE : NE CLIQUE PAS DESSUS.",W/2,300);
+        if(s.phaseT>=7 && s.phaseT<12){ctx.font="68px system-ui";ctx.fillText("🕷️",W/2,390);}
+        const bx=40,bw=310,p=clamp(s.phaseT/20,0,1);
         rr(bx,335,bw,12,6,"#ffffff10");
         ctx.fillStyle="#63f6b5";ctx.fillRect(bx+bw*.5,330,bw*.22,22);
         ctx.fillStyle="#ffffff";ctx.fillRect(bx+bw*p-2,326,4,30);
