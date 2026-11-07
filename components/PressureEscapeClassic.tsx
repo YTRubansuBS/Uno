@@ -375,10 +375,10 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       }
 
       // Add a few clearly distinct Scroll Game variations while keeping the same progression rhythm.
-      const tail = [
-        { id: "tail1", kind: "SPIDER_DONT" as CommandKind, duration: 4.5, title: "IGNORE IT", detail: "Une araignée arrive. NE CLIQUE PAS.", variant: 0 },
+      const tail: Command[] = [
+        { id: "tail1", kind: "SPIDER_DONT", duration: 4.5, title: "IGNORE IT", detail: "Une araignée arrive. NE CLIQUE PAS.", variant: 0 },
         { id: "tail2", kind: "MEMORY_CHECK", duration: 6, title: "MEMORY CHECK", detail: "PAIR = PRESS • IMPAIR = WAIT.", variant: 0 },
-        { id: "tail3", kind: "FINAL" as CommandKind, duration: 8, title: "PRESS TO ASCEND", detail: "Le dernier bouton.", variant: 0 },
+        { id: "tail3", kind: "FINAL", duration: 8, title: "PRESS TO ASCEND", detail: "Le dernier bouton.", variant: 0 },
       ];
       commands.push(tail[0], tail[1], tail[2]);
 
