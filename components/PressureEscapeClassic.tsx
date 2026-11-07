@@ -5,16 +5,8 @@ import { useEffect, useRef } from "react";
 type Props = { color: string; onScore?: (n: number) => void };
 
 type Phase =
-  | "INTRO"
-  | "TIMING"
-  | "SHAPE"
-  | "HOLD"
-  | "NUMBER"
-  | "CATS"
-  | "SPIDER"
-  | "RAT"
-  | "END"
-  | "FAIL";
+  | "INTRO" | "TIMING" | "SHAPE" | "HOLD" | "NUMBER" | "CATS"
+  | "SPIDER" | "WAIT" | "DOUBLE" | "DONT" | "RAT" | "END" | "FAIL";
 
 type Shape = "STAR" | "SQUARE" | "TRIANGLE" | "CIRCLE";
 
@@ -42,7 +34,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       failures:0,presses:0,shape:null as Shape|null,shapeNeed:0,
       number:5,cats:0,catsShown:0,memoryVisible:true,
       flash:0,shake:0,msg:"",msgT:0,buttonDown:false,
-      finished:false
+      finished:false, round:0, lastChallenge:"", timer:3.2, targetPresses:0, waitPassed:false
     };
 
     try{s.best=Number(localStorage.getItem("sg-best-pressure"))||0}catch{}
@@ -79,14 +71,33 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       save();sound(120,.14);vibrate([18,24,36]);
     };
 
+    const challenges:Phase[]=["TIMING","SHAPE","HOLD","NUMBER","CATS","SPIDER","WAIT","DOUBLE","DONT"];
+    const pickNext=()=>{
+      const available=challenges.filter((p)=>p!==s.lastChallenge);
+      const phase=available[Math.floor(Math.random()*available.length)];
+      s.lastChallenge=phase;
+      return phase;
+    };
+
     const startRun=()=>{
       s.runScore=0;s.pressures=0;s.failures=0;s.phase="TIMING";s.phaseT=0;s.flash=0;s.shake=0;s.msg="";s.number=2+Math.floor(Math.random()*8);
-      s.cats=0;s.catsShown=0;s.memoryVisible=true;s.finished=false;
+      s.cats=0;s.catsShown=0;s.memoryVisible=true;s.finished=false;s.round=0;s.lastChallenge="TIMING";s.timer=2.8;
       sound(260,.06);vibrate(15);
     };
 
-    const next=(phase:Phase)=>{
+    const next=()=>{
+      s.round++;
+      if(s.round>=10){s.phase="RAT";s.phaseT=0;s.timer=3.4;s.buttonDown=false;return;}
+      const phase=pickNext();
       s.phase=phase;s.phaseT=0;s.buttonDown=false;s.pressures=0;s.flash=0;s.msg="";s.msgT=0;
+      s.timer=phase==="TIMING"||phase==="SPIDER"?2.4:phase==="HOLD"?1.8:phase==="WAIT"?2.8:phase==="DOUBLE"?1.8:phase==="DONT"?2.2:3.4;
+      if(phase==="SHAPE"){
+        const pool:Shape[]=["STAR","SQUARE","TRIANGLE"];
+        s.shape=pool[Math.floor(Math.random()*pool.length)];
+        s.shapeNeed=shapeData(s.shape).need;
+      }
+      if(phase==="NUMBER"){s.number=2+Math.floor(Math.random()*8);s.memoryVisible=true;}
+      if(phase==="CATS"){s.cats=0;s.catsShown=0;}
       sound(320,.04);
     };
 
@@ -112,7 +123,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
 
       if(phase==="RAT"){
         if(!down)return;
-        if(hitTest(x??0,y??0)==="RAT"){addScore(700);next("END");save();sound(760,.2);vibrate(25);}
+        if(hitTest(x??0,y??0)==="RAT"){addScore(700);next();save();sound(760,.2);vibrate(25);}
         return;
       }
 
@@ -120,33 +131,45 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         s.buttonDown=true;
         if(phase==="TIMING"){
           const p=clamp(s.phaseT/1.8,0,1);
-          if(p>.52&&p<.74){addScore(120);s.flash=.18;next("SHAPE");return;}
+          if(p>.52&&p<.74){addScore(120);s.flash=.18;next();return;}
           fail(p<.52?"TOO SOON":"TOO LATE");return;
         }
         if(phase==="SHAPE"){
           s.pressures++;
-          if(s.pressures===s.shapeNeed){addScore(180);next("HOLD");return;}
+          if(s.pressures===s.shapeNeed){addScore(180);next();return;}
           if(s.pressures>s.shapeNeed)fail("TOO MANY");return;
+        }
+        if(phase==="DOUBLE"){
+          s.pressures++;
+          if(s.pressures===2){addScore(130);next();return;}
+          if(s.pressures>2)fail("TOO MANY");
+          return;
+        }
+        if(phase==="WAIT"){
+          fail("TOO SOON");return;
+        }
+        if(phase==="DONT"){
+          fail("DON'T PRESS");return;
         }
         if(phase==="HOLD"){return;}
         if(phase==="NUMBER"){
-          addScore(160);next("CATS");return;
+          addScore(160);next();return;
         }
         if(phase==="CATS"){
           const target=s.cats;
           s.pressures++;
-          if(s.pressures===target){addScore(220);next("SPIDER");return;}
+          if(s.pressures===target){addScore(220);next();return;}
           if(s.pressures>target)fail("TOO MANY");return;
         }
         if(phase==="SPIDER"){
-          const p=clamp(s.phaseT/2.0,0,1);
-          if(p>.5){addScore(240);next("RAT");return;}
+          const p=clamp(s.phaseT/s.timer,0,1);
+          if(p>.5){addScore(240);next();return;}
           fail("TOO SOON");return;
         }
       }else{
         s.buttonDown=false;
         if(phase==="HOLD"){
-          if(s.phaseT>1.05&&s.phaseT<1.45){addScore(180);next("NUMBER");}
+          if(s.phaseT>1.05&&s.phaseT<1.45){addScore(180);next();}
           else fail(s.phaseT<1.05?"LET GO TOO SOON":"HOLD TOO LONG");
         }
       }
@@ -167,25 +190,29 @@ export default function PressureEscapeClassic({color,onScore}:Props){
     const update=(dt:number)=>{
       s.t+=dt;s.phaseT+=dt;s.flash=Math.max(0,s.flash-dt);s.shake=Math.max(0,s.shake-dt);s.msgT=Math.max(0,s.msgT-dt);
 
-      if(s.phase==="TIMING"&&s.phaseT>1.8)fail("TOO LATE");
+      if(["TIMING","SPIDER","WAIT","DOUBLE","DONT","HOLD"].includes(s.phase) && s.phaseT>s.timer){
+        if(s.phase==="WAIT"||s.phase==="DONT"){addScore(110);next();}
+        else fail("TOO LATE");
+      }
+      s.timer=Math.max(0,s.timer);
       if(s.phase==="SHAPE"&&s.phaseT<.5&&s.shape===null){
         const pool:Shape[]=["STAR","SQUARE","TRIANGLE","CIRCLE"];
         s.shape=pool[Math.floor(Math.random()*pool.length)];
         s.shapeNeed=shapeData(s.shape).need;
       }
-      if(s.phase==="SHAPE"&&s.phaseT>4)fail("TOO SLOW");
+      if(s.phase==="SHAPE"&&s.phaseT>3.4)fail("TOO SLOW");
 
       if(s.phase==="HOLD"&&s.phaseT>1.8&&!s.buttonDown)fail("LET GO TOO SOON");
-      if(s.phase==="HOLD"&&s.phaseT>1.8&&s.buttonDown)fail("HOLD TOO LONG");
 
-      if(s.phase==="NUMBER"&&s.phaseT>.9)s.memoryVisible=false;
 
       if(s.phase==="CATS"){
-        if(s.catsShown<4&&s.phaseT>(s.catsShown+1)*.32){s.catsShown++;s.cats++}
-        if(s.phaseT>1.7){s.catsShown=4}
+        const total=3+((s.round*7)%4);
+        if(s.catsShown<total&&s.phaseT>(s.catsShown+1)*.28){s.catsShown++;s.cats++}
+        if(s.catsShown>=total&&s.phaseT>total*.28+.7){s.msg="NOW PRESS ONCE FOR EACH CAT";s.msgT=.8}
       }
 
-      if(s.phase==="SPIDER"&&s.phaseT>2.05)fail("TOO LATE");
+      if(s.phase==="NUMBER"&&s.phaseT>1.15)s.memoryVisible=false;
+      if(s.phase==="CATS"&&s.catsShown>=3 && s.phaseT>3.4)fail("TOO SLOW");
     };
 
     const rr=(x:number,y:number,w:number,h:number,r:number,fill:string)=>{
@@ -213,6 +240,25 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       }else{
         ctx.beginPath();ctx.arc(0,0,110,0,Math.PI*2);ctx.stroke();
       }
+      ctx.restore();
+    };
+
+    const drawTimerRing=()=>{
+      if(["INTRO","FAIL","END"].includes(s.phase as string))return;
+      const cx=W/2,cy=585,r=112;
+      const total=Math.max(.1,s.phase==="HOLD"?1.8:s.timer);
+      const p=clamp(s.phaseT/total,0,1);
+      ctx.save();
+      ctx.lineWidth=9;
+      ctx.lineCap="round";
+      ctx.strokeStyle="#ffffff12";
+      ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+      ctx.strokeStyle=p>.82?"#ff637f":"#63f6b5";
+      ctx.shadowBlur=16;ctx.shadowColor=p>.82?"#ff637f":"#63f6b5";
+      ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-p));ctx.stroke();
+      ctx.shadowBlur=0;
+      ctx.fillStyle="#ffffff75";ctx.font="900 10px Inter,system-ui";ctx.textAlign="center";
+      ctx.fillText((total-s.phaseT).toFixed(1)+"s",cx,cy-r-13);
       ctx.restore();
     };
 
@@ -280,6 +326,20 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         for(let i=0;i<s.catsShown;i++){ctx.font="46px system-ui";ctx.fillText("🐱",70+i*80,385)}
         if(s.catsShown>=4){ctx.fillStyle="#63f6b5";ctx.font="850 13px Inter,system-ui";ctx.fillText("UN APPUI POUR CHAQUE CHAT",W/2,450)}
         drawButton(String(s.pressures));
+      }else if(s.phase==="WAIT"){
+        ctx.fillStyle="#fff";ctx.font="950 29px Inter,system-ui";ctx.fillText("WAIT.",W/2,235);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Ne touche à rien. Attends la fin du timer.",W/2,264);
+        ctx.fillStyle="#63f6b5";ctx.font="900 14px Inter,system-ui";ctx.fillText("DO NOTHING",W/2,390);
+        drawButton("WAIT");
+      }else if(s.phase==="DOUBLE"){
+        ctx.fillStyle="#fff";ctx.font="950 29px Inter,system-ui";ctx.fillText("PRESS IT TWICE",W/2,235);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Deux pressions. Pas une de plus.",W/2,264);
+        drawButton(String(s.pressures));
+      }else if(s.phase==="DONT"){
+        ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("DO NOT PRESS",W/2,235);
+        ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Le bouton est là pour te faire réagir.",W/2,264);
+        ctx.fillStyle="#ff637f";ctx.font="950 15px Inter,system-ui";ctx.fillText("DON'T TOUCH IT.",W/2,390);
+        drawButton("NO");
       }else if(s.phase==="SPIDER"){
         ctx.fillStyle="#fff";ctx.font="950 28px Inter,system-ui";ctx.fillText("PRESS AFTER HALF-TIME",W/2,230);
         ctx.fillStyle="#ffffff82";ctx.font="700 11px Inter,system-ui";ctx.fillText("Ne te laisse pas distraire.",W/2,258);
@@ -307,6 +367,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         drawButton("PLAY");
       }
 
+      drawTimerRing();
       if(s.msgT>0&&s.phase!=="FAIL"){ctx.globalAlpha=Math.min(1,s.msgT);ctx.fillStyle="#63f6b5";ctx.font="950 18px Inter,system-ui";ctx.fillText(s.msg,W/2,525);ctx.globalAlpha=1}
       if(s.flash>0){ctx.globalAlpha=s.flash*.38;ctx.fillStyle=s.phase==="FAIL"?"#ff5f7a":"#63f6b5";ctx.fillRect(0,0,W,H);ctx.globalAlpha=1}
 
