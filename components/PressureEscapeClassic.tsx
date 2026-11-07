@@ -335,6 +335,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         ],
         [
           { id: "g30", kind: "DONT", duration: 4.5, title: "DON'T PANIC", detail: "Ne réagis pas au premier visuel.", variant: 0 },
+        ],
       ];
 
       const groupOrder = [
