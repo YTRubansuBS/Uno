@@ -171,8 +171,9 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       }else{
         s.buttonDown=false;
         if(phase==="HOLD"){
-          if(s.phaseT>1.05&&s.phaseT<1.45){addScore(180);next();}
-          else fail(s.phaseT<1.05?"LET GO TOO SOON":"HOLD TOO LONG");
+          if(!s.phaseT){return;}
+          // Release before the timer ends: the original puzzle only evaluates whether the button is held at timeout.
+          if(s.phaseT<s.timer) return;
         }
       }
     };
@@ -195,8 +196,8 @@ export default function PressureEscapeClassic({color,onScore}:Props){
       if(["TIMING","SPIDER","WAIT","DOUBLE","DONT","HOLD","SHAPE_INTRO","NUMBER_INTRO","CATS_INTRO","SPIDER_INTRO"].includes(s.phase) && s.phaseT>s.timer){
         if(s.phase==="WAIT"||s.phase==="DONT"){addScore(110);next();}
         else if(s.phase==="SHAPE_INTRO"){s.phase="SHAPE";s.phaseT=0;s.timer=s.shape==="STAR"?15:s.shape==="SQUARE"?9:7.2;s.pressures=0;}
-        else if(s.phase==="NUMBER_INTRO"){s.phase="NUMBER";s.phaseT=0;s.timer=3.4;s.memoryVisible=true;}
-        else if(s.phase==="CATS_INTRO"){s.phase="CATS";s.phaseT=0;s.timer=3.4;s.cats=0;s.catsShown=0;s.pressures=0;}
+        else if(s.phase==="NUMBER_INTRO"){s.phase="NUMBER";s.phaseT=0;s.timer=6;s.memoryVisible=true;}
+        else if(s.phase==="CATS_INTRO"){s.phase="CATS";s.phaseT=0;s.timer=7.2;s.cats=0;s.catsShown=0;s.pressures=0;}
         else if(s.phase==="SPIDER_INTRO"){s.phase="SPIDER";s.phaseT=0;s.timer=4.5;s.timerSeg=40;}
         else if(s.phase==="SPIDER"){addScore(240);next();}
         else if(s.phase==="HOLD"){
@@ -213,7 +214,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
         s.shape=pool[Math.floor(Math.random()*pool.length)];
         s.shapeNeed=shapeData(s.shape).need;
       }
-      if(s.phase==="SHAPE"&&s.phaseT>3.4)fail("TOO SLOW");
+      if(s.phase==="SHAPE" && s.phaseT>s.timer)fail("TOO SLOW");
 
       if(s.phase==="HOLD"&&s.phaseT>s.timer && !s.buttonDown)fail("YOU LET GO");
       if(s.phase==="CATS_PRESS"&&s.phaseT>s.timer)fail("TOO SLOW");
