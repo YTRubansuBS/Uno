@@ -1,7 +1,7 @@
 "use client";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import ArcadeGame from "../components/ArcadeGame";
-import PressureEscape from "../components/PressureEscape";
+import PressureEscape from "../components/PressureEscapeClassic";
 
 type Game={id:string;color:string;name:string;tag:string};
 const GAMES:Game[]=[
