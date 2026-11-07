@@ -123,7 +123,7 @@ export default function PressureEscapeClassic({color,onScore}:Props){
 
       if(phase==="RAT"){
         if(!down)return;
-        if(hitTest(x??0,y??0)==="RAT"){addScore(700);next();save();sound(760,.2);vibrate(25);}
+        if(hitTest(x??0,y??0)==="RAT"){addScore(700);s.phase="END";s.phaseT=0;s.buttonDown=false;save();sound(760,.2);vibrate(25);}
         return;
       }
 
