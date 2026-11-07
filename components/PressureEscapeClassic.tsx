@@ -23,6 +23,7 @@ type CommandKind =
   | "QUICK_DONT"
   | "RANDOM_COUNT"
   | "SPIDER_COUNT"
+  | "SPIDER_DONT"
   | "HOLD_LONG"
   | "SAME_AS_LAST"
   | "RAT_CUE"
@@ -66,6 +67,7 @@ type GameState = {
   timerSegments: number;
   lastKind: CommandKind | null;
   lastRequiredPress: boolean | null;
+  previousRequiredPress: boolean | null;
   memoryNumber: number;
   memoryCats: number;
   currentCats: number;
@@ -131,6 +133,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       timerSegments: SEGMENTS,
       lastKind: null,
       lastRequiredPress: null,
+      previousRequiredPress: null,
       memoryNumber: 0,
       memoryCats: 0,
       currentCats: 0,
@@ -258,7 +261,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         ],
         [
           { id: "g6a", kind: "RANDOM_COUNT", duration: 6, title: "PRESS THE NUMBER", detail: "Le compteur t'indique combien de fois.", variant: 0 },
-          { id: "g6b", kind: "SPIDER_COUNT", duration: 6, title: "COUNT DOWN", detail: "Compte les pressions restantes.", variant: 1 },
+          { id: "g6b", kind: "RANDOM_COUNT", duration: 6, title: "COUNT DOWN", detail: "Compte les pressions restantes.", variant: 1 },
         ],
         [
           { id: "g7a", kind: "HOLD_LONG", duration: 9, title: "HOLD LONGER", detail: "Maintiens pendant plus de 2 secondes.", variant: 0 },
@@ -280,7 +283,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           { id: "g12", kind: "CATS_EARLIER", duration: 9, title: "REMEMBER THE CATS", detail: "Une pression pour chaque chat vu plus tôt.", variant: 0 },
         ],
         [
-          { id: "g13", kind: "SPIDER_COUNT", duration: 4.5, title: "SPIDER DISTRACTION", detail: "Une araignée arrive. Ne clique pas dessus.", variant: 0 },
+          { id: "g13", kind: "SPIDER_DONT", duration: 4.5, title: "SPIDER DISTRACTION", detail: "Une araignée arrive. NE CLIQUE PAS. Attends.", variant: 0 },
         ],
         [
           { id: "g14", kind: "COUNT_WORDS", duration: 9, title: "MEMORY + COUNT", detail: "Lis toute la phrase avant de toucher.", variant: 0 },
@@ -339,13 +342,25 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       ];
 
       const commands: Command[] = [];
+      let humanRobotSeen = 0;
       for (const groupIndex of groupOrder) {
-        if (groups[groupIndex]) commands.push(pickVariant(groups[groupIndex]));
+        if (!groups[groupIndex]) continue;
+        if (groupIndex === 4) {
+          humanRobotSeen += 1;
+          const forced = humanRobotSeen === 1
+            ? groups[groupIndex].find((v) => v.kind === "HUMAN")!
+            : groups[groupIndex].find((v) => v.kind === "ROBOT")!;
+          const chosen = { ...forced };
+          s.lastKind = chosen.kind;
+          commands.push(chosen);
+        } else {
+          commands.push(pickVariant(groups[groupIndex]));
+        }
       }
 
       // Add a few clearly distinct Scroll Game variations while keeping the same progression rhythm.
       const tail = [
-        { id: "tail1", kind: "SPIDER_COUNT" as CommandKind, duration: 4.5, title: "IGNORE IT", detail: "La distraction arrive avant la réponse.", variant: 0 },
+        { id: "tail1", kind: "SPIDER_DONT" as CommandKind, duration: 4.5, title: "IGNORE IT", detail: "Une araignée arrive. NE CLIQUE PAS.", variant: 0 },
         { id: "tail2", kind: "MEMORY_CHECK" as CommandKind, duration: 6, title: "REMEMBER?", detail: "Une pression si tu as retenu le nombre.", variant: 0 },
         { id: "tail3", kind: "FINAL" as CommandKind, duration: 8, title: "PRESS TO ASCEND", detail: "Le dernier bouton.", variant: 0 },
       ];
@@ -367,6 +382,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
     };
 
     const finishCommand = (bonus = 0) => {
+      s.previousRequiredPress = s.lastRequiredPress;
       addScore(bonus);
       s.successFlash = 0.45;
       tone(660, 0.07, 0.035);
@@ -428,9 +444,6 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       if (c.kind === "RANDOM_COUNT") {
         c.variant = 3 + Math.floor(Math.random() * 6);
       }
-      if (c.kind === "SPIDER_COUNT") {
-        c.variant = 2 + Math.floor(Math.random() * 6);
-      }
       if (c.kind === "MATH_COUNT") {
         c.variant = 3 + Math.floor(Math.random() * 3);
       }
@@ -465,6 +478,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       s.successFlash = 0;
       s.timerSegments = SEGMENTS;
       s.lastKind = null;
+      s.previousRequiredPress = null;
       s.buttonDown = false;
       s.presses = 0;
       s.humanAnswer = null;
@@ -564,11 +578,14 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         case "SPIDER_COUNT":
           if (s.presses > countTarget(c)) fail("TOO MANY");
           return;
+        case "SPIDER_DONT":
+          fail("NEVER PRESS");
+          return;
         case "HOLD_LONG":
           if (s.holdStart === null) s.holdStart = s.commandT;
           return;
         case "SAME_AS_LAST":
-          if (s.lastRequiredPress) finishCommand(120);
+          if (s.previousRequiredPress === true) finishCommand(120);
           else fail("THIS ONE WAS A NO-PRESS");
           return;
         case "RAT_CUE":
@@ -655,6 +672,9 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
       if (c.kind === "HALF_TIME") {
         s.spiderVisible = s.commandT >= 7 && s.commandT < 12;
       }
+      if (c.kind === "SPIDER_DONT") {
+        s.spiderVisible = s.commandT >= 1.2 && s.commandT < c.duration - 0.35;
+      }
 
       if (c.kind === "HOLD_LONG" && s.buttonDown && s.holdStart === null) {
         s.holdStart = s.commandT;
@@ -697,6 +717,9 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             if (s.presses === countTarget(c)) finishCommand(120);
             else fail("WRONG COUNT");
             return;
+          case "SPIDER_DONT":
+            finishCommand(100);
+            return;
           case "LESS_TWO":
             if (s.presses < 2) finishCommand(110);
             else fail("TOO MANY");
@@ -735,7 +758,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
             } else fail("LET GO");
             return;
           case "SAME_AS_LAST":
-            if (s.lastRequiredPress === false) finishCommand(120);
+            if (s.previousRequiredPress === false) finishCommand(120);
             else fail("THIS ONE WAS PRESS");
             return;
           case "RAT_CUE":
@@ -1189,7 +1212,11 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           text("6+ PRESSIONS", BUTTON_X, 350, 24, "#6cff9f", 950);
           break;
         case "CORNERS":
-          drawShape(s.currentShape);
+          if (s.commandT < 0.85) {
+            text("UNE FORME ARRIVE...", BUTTON_X, 365, 16, "#8affb1", 850);
+          } else {
+            drawShape(s.currentShape);
+          }
           break;
         case "HUMAN":
         case "ROBOT":
@@ -1213,7 +1240,10 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         case "RANDOM_COUNT":
         case "SPIDER_COUNT":
           text(String(countTarget(c) - s.presses) + " RESTANT(S)", BUTTON_X, 350, 26, "#75ffa7", 950);
-          if (c.kind === "SPIDER_COUNT" && s.spiderVisible) drawSpider();
+          break;
+        case "SPIDER_DONT":
+          if (s.spiderVisible) drawSpider();
+          else text("L'ARAIGNÉE ARRIVE...", BUTTON_X, 365, 15, "#ffda7d", 900);
           break;
         case "HOLD_LONG":
           text(s.holdStart !== null && s.buttonDown ? "MAINTIENS..." : "PLUS DE 2 SEC", BUTTON_X, 350, 26, "#75ffa7", 950);
@@ -1227,15 +1257,21 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           text("UN RAT VA ARRIVER À DROITE", BUTTON_X, 325, 15, "#dfffe8", 800);
           text("PRESSE LE RAT, PAS LE BOUTON", BUTTON_X, 365, 13, "#65ff9e", 900);
           if (s.ratVisible) drawRat();
+          else text("ATTENDS...", BUTTON_X, 430, 13, "#b8cfc2", 800);
           break;
         case "CATS_EVEN":
-          text("ATTENDS LES CHATS", BUTTON_X, 300, 14, "#65ff9e", 900);
-          for (let i = 0; i < s.currentCats; i++) drawCat(62 + i * 53, 380, 0.9, i * 0.5);
-          text("PAIR = PRESS • IMPAIR = WAIT", BUTTON_X, 485, 11, "#d9e9df", 800);
+          text("LES CHATS VONT ARRIVER", BUTTON_X, 300, 14, "#65ff9e", 900);
+          if (s.commandT >= 1.0) {
+            for (let i = 0; i < s.currentCats; i++) drawCat(62 + i * 53, 380, 0.9, i * 0.5);
+            text("PAIR = PRESS • IMPAIR = WAIT", BUTTON_X, 485, 11, "#d9e9df", 800);
+          } else {
+            text("COMPTE-LES QUAND ILS ARRIVENT", BUTTON_X, 385, 12, "#c7d9ce", 800);
+          }
           break;
         case "CATS_EARLIER":
           text("COMBIEN DE CHATS PLUS TÔT ?", BUTTON_X, 330, 18, "#ffffff", 900);
-          text(String(s.memoryCats) + " PRESSIONS", BUTTON_X, 375, 27, "#65ff9e", 950);
+          text(String(s.presses) + " PRESSIONS", BUTTON_X, 375, 27, "#65ff9e", 950);
+          text("LE NOMBRE EST CACHÉ : SOUVIENS-TOI.", BUTTON_X, 415, 10, "#bfd4c6", 800);
           break;
         case "NEXT_LIE":
           text("UNE CONSIGNE PIÉGEUSE", BUTTON_X, 330, 18, "#ffcf7e", 900);
@@ -1251,6 +1287,7 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
         case "HALF_TIME":
           text("ATTENDS 10 SEC", BUTTON_X, 300, 20, "#65ff9e", 950);
           text("PUIS PRESSE", BUTTON_X, 338, 20, "#ffffff", 950);
+          text("ARAIGNÉE = DISTRACTION, PAS UNE CONSIGNE", BUTTON_X, 382, 10, "#ffd68a", 800);
           if (s.spiderVisible) drawSpider();
           break;
         case "MORE_THAN_CORNERS":
@@ -1260,8 +1297,13 @@ export default function PressureEscapeClassic({ color, onScore }: Props) {
           drawClock(s.clockHour);
           break;
         case "MEMORY_SHOW":
-          text(String(s.memoryNumber), BUTTON_X, 350, 72, "#65ff9e", 950);
-          text("MÉMORISE CE NOMBRE", BUTTON_X, 430, 13, "#d9f4e3", 800);
+          if (s.commandT < 0.85) {
+            text("UN NOMBRE VA APPARAÎTRE", BUTTON_X, 350, 15, "#65ff9e", 900);
+            text("MÉMORISE-LE", BUTTON_X, 390, 18, "#ffffff", 900);
+          } else {
+            text(String(s.memoryNumber), BUTTON_X, 350, 72, "#65ff9e", 950);
+            text("MÉMORISE CE NOMBRE", BUTTON_X, 430, 13, "#d9f4e3", 800);
+          }
           break;
         case "MEMORY_CHECK":
           text("TU TE SOUVIENS DU NOMBRE ?", BUTTON_X, 345, 17, "#fff", 900);
