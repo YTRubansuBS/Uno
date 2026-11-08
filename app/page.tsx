@@ -32,7 +32,7 @@ function Tutorial({game,onDone}:{game:Game;onDone:()=>void}){
       <div className="game-tutorial-kicker">TUTORIEL • {t.title}</div>
       <h1>{t.title}</h1><p>{t.goal}</p>
       <div className="game-tutorial-controls">{t.controls.map((x,i)=><div className="game-tutorial-control" key={i}>{x}</div>)}</div>
-      <button className="game-tutorial-start" onClick={onDone}>▶ J'AI COMPRIS — JOUER</button>
+      <button className="game-tutorial-start" onClick={onDone}>▶ J&apos;AI COMPRIS — JOUER</button>
     </div>
   </div>;
 }
@@ -45,7 +45,13 @@ export default function Page(){
   const tutorialKey=useMemo(()=>"scrollGameTutorials:v2:"+current.id,[current.id]);
 
   useEffect(()=>{
-    try{setTutorialOpen(localStorage.getItem(tutorialKey)!=="1")}catch{setTutorialOpen(true)}
+    try{
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTutorialOpen(localStorage.getItem(tutorialKey)!=="1")
+    }catch{
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTutorialOpen(true)
+    }
   },[tutorialKey]);
 
   useEffect(()=>{
