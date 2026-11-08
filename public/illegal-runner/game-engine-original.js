@@ -409,8 +409,15 @@
     shake: 0, startTime: 0, last: 0, acc: 0,
     player: null, obs: [], coinsArr: [], bonuses: [], parts: [],
     world: WORLDS.city, goal: 0,
+    infiniteMilestone: 0, infiniteLastReward: 0,
     lastObstacleType: "", spawnCount: 0,
   }
+  const IR_ENGINE_MAX_LEVEL = 300
+  const IR_ENGINE_LEVEL_GOAL = (level) => {
+    const n = Math.max(1, Math.min(IR_ENGINE_MAX_LEVEL, Math.floor(Number(level) || 1)))
+    return Math.round(280 + Math.pow(n, 1.08) * 24)
+  }
+
   const STEP = 1 / 120 // fixed physics step
 
   function resize() {
@@ -462,6 +469,8 @@
     $("game").style.display = "block"
     resize()
     G.dist = 0; G.coins = 0
+    G.infiniteMilestone = 0
+    G.infiniteLastReward = 0
     G.maxLives = (profile.lives_level || 1) + 1
     G.lives = G.maxLives
     G.baseSpeed = 360 + (profile.distance_level || 1) * 22
@@ -472,7 +481,7 @@
     G.shield = false; G.coinMult = 1; G.coinBoostT = 0; G.jumpBoostT = 0
     G.gliding = false; G.canDouble = false; G.shake = 0
     G.obs = []; G.coinsArr = []; G.bonuses = []; G.parts = []
-    G.goal = level ? 400 + level * 20 : 0
+    G.goal = level ? IR_ENGINE_LEVEL_GOAL(level) : 0
     G.lastObstacleType = ""
     G.spawnCount = 0
     G.player = {
@@ -696,6 +705,17 @@
     const dashSpeed = G.dashT > 0 ? 520 : 0
     G.speed = Math.min(940, G.baseSpeed + G.dist * 0.03 + dashSpeed)
     G.dist += G.speed * dt * 0.06
+    if (!G.level) {
+      const milestone = Math.floor(G.dist / 500)
+      if (milestone > (G.infiniteMilestone || 0)) {
+        G.infiniteMilestone = milestone
+        const bonus = Math.min(1000, 75 + milestone * 25)
+        G.coins += bonus
+        G.infiniteLastReward = bonus
+        toast("🔥 CAP DES " + (milestone * 500).toLocaleString("fr-FR") + " m · +" + bonus + " pièces")
+        SFX.coin()
+      }
+    }
     G.worldScroll += G.speed * dt
 
     // gravity / glide
