@@ -34,10 +34,11 @@
     if(engineReady&&!sessionLoading){overlay.style.display='none';overlay.style.opacity='0';overlay.style.pointerEvents='none'}
   }
   function render(){if(!list)return;list.innerHTML=steps.map(s=>{const st=s.state||'waiting';const t=st==='done'?'✓ CHARGÉ':st==='loading'?'… CHARGEMENT':st==='error'?'✕ ERREUR':'EN ATTENTE';return '<div class="ir-load-step" data-state="'+st+'"><span class="ico">'+s.icon+'</span><span class="name">'+s.label+'</span><span class="state">'+t+'</span></div>'}).join('');const n=steps.filter(s=>s.state==='done').length;if(bar)bar.style.width=Math.round(n/steps.length*100)+'%'}
-  function show(){create();active=true;overlay.style.display='flex';overlay.style.opacity='1';overlay.style.pointerEvents='auto';document.documentElement.style.overflow='hidden';render()}
+  function show(){if(new URLSearchParams(location.search).get('embed')==='1'){active=false;return}create();active=true;overlay.style.display='flex';overlay.style.opacity='1';overlay.style.pointerEvents='auto';document.documentElement.style.overflow='hidden';render()}
   function hide(){if(!overlay)return;active=false;overlay.style.opacity='0';overlay.style.pointerEvents='none';setTimeout(()=>{if(!active){overlay.style.display='none';document.documentElement.style.overflow=''}},260)}
   function setStep(id,state,message){const s=steps.find(x=>x.id===id);if(!s)return;s.state=state;if(message&&status)status.textContent=message;if(title)title.textContent=state==='error'?'ERREUR DE CHARGEMENT':state==='done'&&id==='daily'?'PRÊT !':'CHARGEMENT';render()}
   function startSession(){
+    if(new URLSearchParams(location.search).get('embed')==='1'){sessionLoading=false;engineReady=true;active=false;return}
     steps=DEFAULT_STEPS.map(s=>({...s,state:'waiting'}))
     const e=steps.find(s=>s.id==='engine')
     if(engineReady)e.state='done'
