@@ -18,7 +18,7 @@ const GAMES:Game[]=[
 const TUTORIALS:Record<string,{title:string;goal:string;controls:string[]}>={
 "illegal-runner":{title:"ILLEGAL RUNNER",goal:"Cours le plus loin possible sans toucher les obstacles.",controls:["Tape / clique sur le jeu = SAUT","⚡ DASH = traverse les obstacles","Clavier : ESPACE / ↑ / W pour sauter"]},
 "tetris":{title:"TETRIS",goal:"Place les pièces pour remplir des lignes et marquer un maximum de points.",controls:["← / → = déplacer","↑ = tourner • ↓ = descendre","ESPACE = chute instantanée • C = HOLD"]},
-"2048":{title:"2048",goal:"Fusionne les mêmes nombres jusqu'à atteindre 2048.",controls:["Swipe = déplacer les cases","Flèches = déplacer","Double-tap = annuler le dernier coup"]},
+"2048":{title:"2048",goal:"Fusionne les mêmes nombres jusqu'à atteindre 2048.",controls:["Swipe = déplacer les cases","Flèches ou WASD = déplacer","Pas d'annulation : chaque coup compte"]},
 "snake":{title:"SNAKE",goal:"Mange la nourriture, grandis et évite les murs, obstacles et ton propre corps.",controls:["Swipe = changer de direction","Flèches = diriger le serpent","🟡 = bonus spécial"]},
 "breakout":{title:"BREAKOUT",goal:"Casse toutes les briques sans perdre tes 3 vies.",controls:["Glisse = déplacer la raquette","Tape = lancer la balle","Attrape les bonus qui tombent"]},
 "uno-fou":{title:"UNO FOU",goal:"Joue au UNO contre des bots ou avec tes amis et gagne la partie.",controls:["Carte jouable = touche-la pour la sélectionner / jouer","Piocher = récupérer une carte","UNO ! = annonce quand il te reste 1 carte","Amis = créer ou rejoindre un salon avec un code"]},
@@ -42,7 +42,7 @@ export default function Page(){
   const [tutorialOpen,setTutorialOpen]=useState(true);
   const startRef=useRef<{x:number;y:number}|null>(null);
   const current=GAMES[index];
-  const tutorialKey=useMemo(()=>`scrollGameTutorials:v2:${current.id}`,[current.id]);
+  const tutorialKey=useMemo(()=>"scrollGameTutorials:v2:"+current.id,[current.id]);
 
   useEffect(()=>{
     try{setTutorialOpen(localStorage.getItem(tutorialKey)!=="1")}catch{setTutorialOpen(true)}
@@ -62,12 +62,13 @@ export default function Page(){
     const key=(e:KeyboardEvent)=>{
       const target=e.target as HTMLElement|null;
       if(tutorialOpen||target?.closest?.("canvas,button,input,textarea,select,[data-game-surface]"))return;
+      if(current.id==="2048")return;
       if(e.key==="ArrowDown"||e.key==="PageDown"){e.preventDefault();setIndex(i=>Math.min(GAMES.length-1,i+1))}
       if(e.key==="ArrowUp"||e.key==="PageUp"){e.preventDefault();setIndex(i=>Math.max(0,i-1))}
     };
     window.addEventListener("pointerdown",down,{passive:true});window.addEventListener("pointerup",up,{passive:true});window.addEventListener("keydown",key);
     return()=>{window.removeEventListener("pointerdown",down);window.removeEventListener("pointerup",up);window.removeEventListener("keydown",key)};
-  },[tutorialOpen]);
+  },[current.id,tutorialOpen]);
 
   const complete=useCallback(()=>{try{localStorage.setItem(tutorialKey,"1")}catch{}setTutorialOpen(false)},[tutorialKey]);
   const go=useCallback((d:number)=>setIndex(i=>Math.max(0,Math.min(GAMES.length-1,i+d))),[]);
