@@ -125,7 +125,7 @@ function buildMovedTiles(tiles: Tile[], direction: Direction) {
   for (const group of groups) {
     let cursor = direction === "left" || direction === "up" ? 0 : SIZE - 1;
 
-    const line = group.map((tile) => ({ ...tile }));
+    const line = group.map((tile) => ({ ...tile, born: false, merged: false }));
     const cells = direction === "left" || direction === "right"
       ? line.map((tile) => ({ ...tile, col: tile.col }))
       : line.map((tile) => ({ ...tile, col: tile.row }));
@@ -323,7 +323,7 @@ export default function Game2048() {
   }, [beep]);
 
   const undo = useCallback(() => {
-    if (inputLocked.current || !history.length || phase === "gameover") return;
+    if (inputLocked.current || !history.length) return;
     const previous = history[history.length - 1];
     setHistory((items) => items.slice(0, -1));
     setGame({
