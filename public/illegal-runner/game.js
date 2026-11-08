@@ -36,6 +36,38 @@ const IR_WORLD_RANDOM = () => {
 }
 const IR_WORLD_RANGE = (a, b) => a + IR_WORLD_RANDOM() * (b - a)
 const IR_WORLD_PICK = (arr) => arr[(IR_WORLD_RANDOM() * arr.length) | 0]
+
+const IR_MAX_LEVEL = 300
+const IR_LEVEL_GOAL = (level) => {
+  const n = Math.max(1, Math.min(IR_MAX_LEVEL, Math.floor(Number(level) || 1)))
+  return Math.round(280 + Math.pow(n, 1.08) * 24)
+}
+const IR_LEVEL_FIRST_REWARD = (level) => {
+  const n = Math.max(1, Math.min(IR_MAX_LEVEL, Number(level) || 1))
+  return Math.min(12000, 180 + Math.floor(n * 22) + Math.floor(Math.pow(n, 1.18) * 4))
+}
+const IR_LEVEL_REPLAY_REWARD = (level) => {
+  const n = Math.max(1, Math.min(IR_MAX_LEVEL, Number(level) || 1))
+  return Math.min(3000, 45 + Math.floor(n * 7))
+}
+const IR_INFINITE_BASE_REWARD = (distance) => {
+  const d = Math.max(0, Math.floor(Number(distance) || 0))
+  return Math.min(10000, 60 + Math.floor(d / 100) * 8)
+}
+const IR_UPGRADE_PRICES = {
+  lives: [150, 450, 900, 1800],
+  distance: [150, 450, 900, 1800, 3600],
+  dash: [200, 500, 1000, 2000],
+  jump: [2500],
+  coin: [150, 450, 900, 1800, 3600],
+  bonus: [150, 400, 800, 1600, 3200],
+  bonus_shield: [100, 300, 700, 1400, 2800],
+  bonus_mega: [100, 300, 700, 1400, 2800],
+  bonus_x2: [100, 300, 700, 1400, 2800],
+  bonus_jetpack: [120, 350, 800, 1600, 3200],
+  bonus_scoreDouble: [120, 350, 800, 1600, 3200],
+  bonus_magnet: [120, 350, 800, 1600, 3200]
+}
 ` + code
       code = code.replace('const G = {', 'const G = window.__IR_G = {')
       // Remove the shared skyline so generic buildings never hide the world view.
@@ -212,22 +244,30 @@ const IR_WORLD_PICK = (arr) => arr[(IR_WORLD_RANDOM() * arr.length) | 0]
       code = replaceBetween(code, "  async function commonSave() {", "  function freePack() {", `  async function commonSave() {
     const distance = Math.max(0, Math.floor(G.dist || 0))
     const runCoins = Math.max(0, Math.floor(G.coins || 0))
-    const completedLevel = Number(G.level || 0)
-    if (completedLevel > 0) profile.highest_level = Math.max(profile.highest_level || 1, Math.min(300, completedLevel + 1))
+    const completedLevel = Math.max(0, Math.floor(Number(G.level || 0)))
+    const mode = completedLevel > 0 ? "level" : "infinite"
+
+    profile.coins = Math.max(0, Number(profile.coins || 0)) + runCoins
+    profile.total_distance = Math.max(0, Number(profile.total_distance || 0)) + distance
+    profile.best_distance = Math.max(Number(profile.best_distance || 0), distance)
+    profile.quest_distance = Math.max(0, Number(profile.quest_distance || 0)) + distance
+    profile.quest_coins = Math.max(0, Number(profile.quest_coins || 0)) + runCoins
+    profile.quest_games = Math.max(0, Number(profile.quest_games || 0)) + 1
+
+    if (completedLevel > 0) {
+      profile.highest_level = Math.max(1, Math.min(IR_MAX_LEVEL, Math.max(Number(profile.highest_level || 1), completedLevel + 1)))
+    }
+
     if (isGuest || !sb || !user) {
-      profile.coins = Math.max(0, Number(profile.coins || 0)) + runCoins
-      profile.total_distance = Math.max(0, Number(profile.total_distance || 0)) + distance
-      profile.best_distance = Math.max(Number(profile.best_distance || 0), distance)
-      profile.quest_distance = Math.max(0, Number(profile.quest_distance || 0)) + distance
-      profile.quest_coins = Math.max(0, Number(profile.quest_coins || 0)) + runCoins
-      profile.quest_games = Math.max(0, Number(profile.quest_games || 0)) + 1
       saveLocal()
-      refreshTop(); renderAll()
+      refreshTop()
+      renderAll()
       return
     }
+
     try {
       const r = await sb.rpc("finish_run", {
-        p_mode: completedLevel ? "level" : "infinite",
+        p_mode: mode,
         p_level: completedLevel,
         p_distance: distance,
         p_coins: runCoins,
@@ -236,11 +276,13 @@ const IR_WORLD_PICK = (arr) => arr[(IR_WORLD_RANDOM() * arr.length) | 0]
       })
       if (r.error) throw r.error
       if (r.data) Object.assign(profile, r.data)
-      refreshTop(); renderAll()
+      refreshTop()
+      renderAll()
       window.dispatchEvent(new CustomEvent("ir:profileChanged", { detail: r.data || {} }))
     } catch (e) {
       console.error("[IR] finish_run error:", e)
-      toast("☁️ Sauvegarde du run impossible.")
+      toast("☁️ Sauvegarde cloud indisponible, progression locale gardée.")
+      try { saveLocal() } catch (e2) {}
     }
   }
 `)
@@ -254,21 +296,34 @@ const IR_WORLD_PICK = (arr) => arr[(IR_WORLD_RANDOM() * arr.length) | 0]
   }
 `)
             code = replaceBetween(code, "  async function finish() {", "  async function end() {", `  async function finish() {
-    if (!G.running) return
+    if (!G.running || !G.level) return
     G.running = false
     cancelAnimationFrame(G.raf)
-    const firstCompletion = G.level >= (profile.highest_level || 1)
-    const reward = firstCompletion ? (100 * Math.ceil(G.level / 10)) : 0
-    if (firstCompletion) G.coins = Math.max(0, Math.floor(G.coins || 0)) + reward
-    const collected = Math.max(0, Math.floor(G.coins || 0))
-    if (G.level >= (profile.highest_level || 1) && G.level < 300) profile.highest_level = G.level + 1
-    if (G.level >= 300) profile.highest_level = 300
-    window.dispatchEvent(new CustomEvent("ir:levelCompletion", { detail: { level: G.level, collected, reward, total: collected, firstCompletion } }))
+
+    const completed = Math.max(1, Math.min(IR_MAX_LEVEL, Math.floor(G.level)))
+    const highestBefore = Math.max(1, Math.min(IR_MAX_LEVEL, Number(profile.highest_level || 1)))
+    const firstCompletion = completed >= highestBefore
+    const reward = firstCompletion ? IR_LEVEL_FIRST_REWARD(completed) : IR_LEVEL_REPLAY_REWARD(completed)
+    G.coins = Math.max(0, Math.floor(G.coins || 0)) + reward
+
+    if (completed < IR_MAX_LEVEL) profile.highest_level = Math.max(highestBefore, completed + 1)
+    else profile.highest_level = IR_MAX_LEVEL
+
+    window.dispatchEvent(new CustomEvent("ir:levelCompletion", {
+      detail: {
+        level: completed,
+        goal: IR_LEVEL_GOAL(completed),
+        reward,
+        firstCompletion,
+        nextLevel: profile.highest_level
+      }
+    }))
+
     await commonSave()
     const progressBar = $("progressBar")
     if (progressBar) progressBar.style.width = "0%"
     SFX.win()
-    showEnd(G.level >= 300 ? "👑 CHAMPION !" : "🏁 NIVEAU " + G.level + " TERMINÉ")
+    showEnd(completed >= IR_MAX_LEVEL ? "👑 NIVEAU 300 — CHAMPION !" : "🏁 NIVEAU " + completed + " TERMINÉ")
   }
 `)
       code = code.replace('    showEnd("TU ES MORT")', '    const progressBar = $("progressBar")\n    if (progressBar) progressBar.style.width = "0%"\n    showEnd("TU ES MORT")')
@@ -321,6 +376,25 @@ const IR_WORLD_PICK = (arr) => arr[(IR_WORLD_RANDOM() * arr.length) | 0]
     ["bonus_magnet", "🧲", "Aimant", 6, "Augmente la durée de l'Aimant."]
   ]
 `)
+      code = replaceBetween(code, "  function renderLevels() {", "  function renderUpgrades() {", `  function renderLevels() {
+    const unlocked = Math.max(1, Math.min(IR_MAX_LEVEL, Number(profile.highest_level || 1)))
+    let html = ''
+    for (let level = 1; level <= IR_MAX_LEVEL; level++) {
+      const open = level <= unlocked
+      const current = level === unlocked
+      const done = level < unlocked
+      const goal = IR_LEVEL_GOAL(level)
+      const reward = IR_LEVEL_FIRST_REWARD(level)
+      const cls = level === IR_MAX_LEVEL ? 'champ' : current ? 'current' : done ? 'done' : 'locked'
+      const label = level === IR_MAX_LEVEL ? '👑' : String(level)
+      html += '<button class="' + cls + '" ' + (open ? 'data-level="' + level + '"' : 'disabled') +
+        ' title="Niveau ' + level + ' · ' + goal.toLocaleString("fr-FR") + ' m · +' + reward.toLocaleString("fr-FR") + ' pièces">' +
+        label + (current ? '<small style="display:block;font-size:8px;opacity:.78">GO</small>' : '') +
+        '</button>'
+    }
+    $("levelButtons").innerHTML = html
+  }
+`)
       code = code.replace('lives_level: 1, distance_level: 1, dash_level: 1, jump_level: 1, coin_level: 1, bonus_level: 1,', 'lives_level: 1, distance_level: 1, dash_level: 1, jump_level: 1, coin_level: 1, bonus_level: 1, bonus_shield_level: 1, bonus_mega_level: 1, bonus_x2_level: 1, bonus_jetpack_level: 1, bonus_scoreDouble_level: 1, bonus_magnet_level: 1,')
       code = code.replace('      user = r.data.user', '      user = r.data.user\n      $("login").style.display = "none"\n      $("app").style.display = "flex"')
       code = code.replace('  async function boot() {', `  async function boot() {
@@ -340,97 +414,116 @@ const IR_WORLD_PICK = (arr) => arr[(IR_WORLD_RANDOM() * arr.length) | 0]
       code = code.replace('  function renderUpgrades() {', `  try { const savedBonus = JSON.parse(localStorage.getItem("ir_bonus_upgrades") || "{}"); for (const k of ["bonus_shield_level","bonus_mega_level","bonus_x2_level","bonus_jetpack_level","bonus_scoreDouble_level","bonus_magnet_level"]) if (savedBonus[k]) profile[k] = Math.max(1, Math.min(6, Number(savedBonus[k]))) } catch(e) {}
   function renderUpgrades() {`);
       code = replaceBetween(code, "  function renderUpgrades() {", "  function renderShop() {", `  function renderUpgrades() {
-    const upgradeCostFor = (id, v) => id === "jump" ? 5000 : [100, 500, 1000, 2500, 5000][Math.min(Math.max(0, v - 1), 4)]
-    const durationFor = (id, v) => id === "bonus" ? 0 : (5 + (v - 1) * 2)
-    const bonusDurationIds = ["bonus_shield","bonus_mega","bonus_x2","bonus_jetpack","bonus_scoreDouble","bonus_magnet"]
-    const bonusDurationKey = id => "ir_bonus_duration:" + (user?.id || profile.username || "guest") + ":" + id
-    const selectedDuration = (id, level) => {
-      const max = 5 + (Math.max(1, Math.min(6, level)) - 1) * 2
-      let value = 5
-      try { value = Number(localStorage.getItem(bonusDurationKey(id)) || 5) } catch (e) {}
-      if (!Number.isFinite(value)) value = 5
-      value = Math.round((value - 5) / 2) * 2 + 5
-      return Math.max(5, Math.min(max, value))
+    const durationIds = ["bonus_shield","bonus_mega","bonus_x2","bonus_jetpack","bonus_scoreDouble","bonus_magnet"]
+    const durationKey = id => "ir_bonus_duration:" + (user?.id || profile.username || "guest") + ":" + id
+    const priceFor = (id, level) => {
+      const prices = IR_UPGRADE_PRICES[id] || []
+      return Number(prices[Math.min(Math.max(0, level - 1), Math.max(0, prices.length - 1))] || 0)
     }
-    const cards = UPGRADES.map(([id, em, n, max, desc]) => {
-      const v = Number(profile[id + "_level"] || 1)
-      const cost = upgradeCostFor(id, v)
-      const maxed = v >= max
-      const duration = durationFor(id, v)
-      const isDuration = bonusDurationIds.includes(id)
-      const chosen = isDuration ? selectedDuration(id, v) : duration
-      const options = isDuration
-        ? [5,7,9,11,13,15].filter(s => s <= 5 + (Math.min(6, v) - 1) * 2).map(s => '<option value="' + s + '"' + (s === chosen ? ' selected' : '') + '>' + s + ' secondes</option>').join('')
+    const currentEffect = (id, level) => {
+      if (id === "lives") return (level + 1) + " vies max"
+      if (id === "distance") return (360 + level * 22) + " vitesse départ"
+      if (id === "dash") return (20 - (Math.min(5, level) - 1) * 2.5).toFixed(1) + "s recharge"
+      if (id === "jump") return level >= 2 ? "Double saut actif" : "Saut standard"
+      if (id === "coin") return level + "x pièces de base"
+      if (id === "bonus") return "Bonus plus fréquents"
+      return (5 + (level - 1) * 2) + "s de durée"
+    }
+    const cards = UPGRADES.map(([id, emoji, name, max, desc]) => {
+      const level = Math.max(1, Math.min(max, Number(profile[id + "_level"] || 1)))
+      const maxed = level >= max
+      const cost = priceFor(id, level)
+      const current = currentEffect(id, level)
+      const next = maxed ? "MAX" : currentEffect(id, level + 1)
+      let chosen = 5
+      const isDuration = durationIds.includes(id)
+      if (isDuration) {
+        try { chosen = Number(localStorage.getItem(durationKey(id)) || 5) } catch (e) {}
+        chosen = Math.max(5, Math.min(5 + (level - 1) * 2, Math.round((chosen - 5) / 2) * 2 + 5))
+      }
+      const durationButtons = isDuration
+        ? '<div class="ir-duration-row">' + [5,7,9,11,13,15].filter(sec => sec <= 5 + (level - 1) * 2).map(sec =>
+            '<button type="button" class="ir-duration ' + (sec === chosen ? 'active' : '') + '" data-duration-value="' + sec + '">' + sec + 's</button>'
+          ).join('') + '</div>'
         : ''
-      return '<div class="card"><div class="emoji">' + em + '</div><h3>' + n + '</h3>' + (id === "bonus" ? '' : '<p class="muted">' + desc + '</p>') +
-        '<p>Niveau ' + v + '/' + max + '</p>' +
-        (id === "bonus" ? '<p>⚡ Apparition plus fréquente à chaque niveau.</p>' : isDuration ? '<div style="margin:10px 0"><div class="muted" style="margin-bottom:6px">⏱️ Choisir la durée</div><div style="display:flex;gap:6px;flex-wrap:wrap" data-bonus-duration="' + id + '">' + [5,7,9,11,13,15].filter(s => s <= 5 + (Math.min(6, v) - 1) * 2).map(s => '<button type="button" data-duration-value="' + s + '" style="min-width:52px;padding:7px 9px;font-weight:900;border:2px solid ' + (s === chosen ? '#00e5ff' : '#26324a') + ';background:' + (s === chosen ? '#0b2430' : '#0a0f18') + ';color:#fff;border-radius:6px;cursor:pointer">' + s + 's</button>').join('') + '</div></div>' : '<p>⏱️ Durée : <b>' + duration + 's</b></p>') +
-        '<div class="progress"><i style="width:' + ((v / max) * 100) + '%"></i></div>' +
-        '<button data-up="' + id + '" ' + (maxed ? 'disabled' : '') + '>' + (maxed ? 'MAX' : '⚡ AMÉLIORER · 🪙 ' + cost) + '</button></div>'
-    }).join("")
-    $("upgradeGrid").innerHTML = cards
-    $("upgradeGrid").querySelectorAll("[data-bonus-duration]").forEach(box => {
-      box.querySelectorAll("[data-duration-value]").forEach(btn => {
-        btn.onclick = () => {
-          const id = box.dataset.bonusDuration
-          const level = Number(profile[id + "_level"] || 1)
-          const max = 5 + (Math.min(6, level) - 1) * 2
-          const value = Math.max(5, Math.min(max, Number(btn.dataset.durationValue)))
-          try { localStorage.setItem(bonusDurationKey(id), String(value)) } catch (e) {}
-          renderUpgrades()
-          toast("⏱️ " + value + "s sélectionnées pour " + (UPGRADES.find(u => u[0] === id)?.[2] || "ce bonus") + ".")
-        }
-      })
+      return '<article class="card ir-upgrade-card ' + (maxed ? 'is-maxed' : '') + '">' +
+        '<div class="ir-upgrade-head"><div class="emoji">' + emoji + '</div><div><h3>' + name + '</h3><p class="muted">' + desc + '</p></div></div>' +
+        '<div class="ir-upgrade-level"><b>LV ' + level + '/' + max + '</b><span>' + Math.round(level / max * 100) + '%</span></div>' +
+        '<div class="progress"><i style="width:' + (level / max * 100) + '%"></i></div>' +
+        '<div class="ir-upgrade-stat"><span>Actuel</span><b>' + current + '</b></div>' +
+        '<div class="ir-upgrade-stat next"><span>Prochain</span><b>' + next + '</b></div>' +
+        (isDuration ? '<div class="ir-upgrade-duration"><span class="muted">Durée sélectionnée</span>' + durationButtons + '</div>' : '') +
+        '<button class="primary ir-upgrade-buy" data-up="' + id + '" ' + (maxed ? 'disabled' : '') + '>' +
+          (maxed ? '✓ MAXIMUM' : '⚡ AMÉLIORER · 🪙 ' + cost.toLocaleString("fr-FR")) +
+        '</button>' +
+      '</article>'
+    }).join('')
+    $("upgradeGrid").innerHTML =
+      '<div class="ir-upgrade-summary">' +
+        '<div><span>🪙</span><b>' + Number(profile.coins || 0).toLocaleString("fr-FR") + '</b><small>PIÈCES</small></div>' +
+        '<div><span>⚡</span><b>' + UPGRADES.filter(u => Number(profile[u[0] + "_level"] || 1) >= u[3]).length + '/' + UPGRADES.length + '</b><small>MAX</small></div>' +
+        '<div><span>🏁</span><b>LV ' + Number(profile.highest_level || 1) + '</b><small>NIVEAU</small></div>' +
+      '</div>' + cards
+
+    $("upgradeGrid").querySelectorAll("[data-duration-value]").forEach(btn => {
+      btn.onclick = () => {
+        const card = btn.closest(".ir-upgrade-card")
+        const id = card?.querySelector("[data-up]")?.dataset?.up
+        if (!id) return
+        const level = Math.max(1, Number(profile[id + "_level"] || 1))
+        const maxSeconds = 5 + (level - 1) * 2
+        const value = Math.max(5, Math.min(maxSeconds, Number(btn.dataset.durationValue)))
+        try { localStorage.setItem(durationKey(id), String(value)) } catch (e) {}
+        renderUpgrades()
+        toast("⏱️ " + value + "s sélectionnées.")
+      }
     })
   }
 `)
       code = replaceBetween(code, "  async function buyUpgrade(id) {", "  function freePack() {", `  async function buyUpgrade(id) {
-    const entry = UPGRADES.find((u) => u[0] === id)
+    const entry = UPGRADES.find(u => u[0] === id)
     if (!entry) return
-    const max = entry[3]
+    const max = Number(entry[3] || 1)
     const key = id + "_level"
-    let v = Math.max(1, Number(profile[key] || 1))
-    if (v >= max) return toast("Niveau maximum !")
-    const cost = id === "jump" ? 5000 : [100, 500, 1000, 2500, 5000][Math.min(Math.max(0, v - 1), 4)]
+    let level = Math.max(1, Math.min(max, Number(profile[key] || 1)))
+    if (level >= max) return toast("✅ " + entry[2] + " est déjà au max.")
+
+    const prices = IR_UPGRADE_PRICES[id] || []
+    const cost = Number(prices[Math.min(level - 1, prices.length - 1)] || 0)
+    if (!cost) return toast("❌ Prix d'amélioration indisponible.")
 
     if (isGuest || !sb || !user) {
       const coins = Math.max(0, Math.floor(Number(profile.coins || 0)))
-      if (coins < cost) return toast("Pas assez de pièces.")
+      if (coins < cost) return toast("🪙 Il te manque " + (cost - coins).toLocaleString("fr-FR") + " pièces.")
       profile.coins = coins - cost
-      profile[key] = v + 1
+      profile[key] = level + 1
       saveLocal()
     } else {
       try {
         const fresh = await sb.from("profiles").select("coins," + key).eq("id", user.id).single()
         if (fresh.error) throw fresh.error
         const freshCoins = Math.max(0, Math.floor(Number(fresh.data?.coins || 0)))
-        const freshLevel = Math.max(1, Number(fresh.data?.[key] || v))
-        v = freshLevel
-        if (v >= max) {
-          profile[key] = v
+        const freshLevel = Math.max(1, Math.min(max, Number(fresh.data?.[key] || level)))
+        if (freshLevel >= max) {
           profile.coins = freshCoins
+          profile[key] = freshLevel
           refreshTop()
           renderAll()
-          return toast("Niveau maximum !")
+          return toast("✅ Niveau maximum déjà atteint.")
         }
-        if (freshCoins < cost) {
+        const realCost = Number(prices[Math.min(freshLevel - 1, prices.length - 1)] || cost)
+        if (freshCoins < realCost) {
           profile.coins = freshCoins
-          profile[key] = v
+          profile[key] = freshLevel
           refreshTop()
           renderAll()
-          return toast("Pas assez de pièces.")
+          return toast("🪙 Il te manque " + (realCost - freshCoins).toLocaleString("fr-FR") + " pièces.")
         }
-        const nextCoins = freshCoins - cost
-        const nextLevel = v + 1
-        const saved = await sb.from("profiles").update({ coins: nextCoins, [key]: nextLevel }).eq("id", user.id)
+        const nextLevel = freshLevel + 1
+        const saved = await sb.from("profiles").update({ coins: freshCoins - realCost, [key]: nextLevel }).eq("id", user.id)
         if (saved.error) throw saved.error
-        profile.coins = nextCoins
+        profile.coins = freshCoins - realCost
         profile[key] = nextLevel
-        try {
-          const backupKeys = ["coins","highest_level","best_distance","total_distance","lives_level","distance_level","dash_level","jump_level","coin_level","bonus_level","bonus_shield_level","bonus_mega_level","bonus_x2_level","bonus_jetpack_level","bonus_scoreDouble_level","bonus_magnet_level"]
-          const backup = {}; for (const k of backupKeys) backup[k] = Number.isFinite(Number(profile[k])) ? Number(profile[k]) : profile[k]
-          localStorage.setItem("ir_profile_backup:" + user.id, JSON.stringify(backup))
-        } catch (e) {}
       } catch (e) {
         console.error("[IR] upgrade save:", e)
         return toast("❌ Impossible d'enregistrer l'amélioration.")
@@ -441,10 +534,9 @@ const IR_WORLD_PICK = (arr) => arr[(IR_WORLD_RANDOM() * arr.length) | 0]
     refreshTop()
     renderAll()
     window.dispatchEvent(new CustomEvent("ir:profileChanged", { detail: { coins: profile.coins, [key]: profile[key] } }))
-    toast("⚡ " + entry[2] + " amélioré ! Niveau " + profile[key] + "/" + max)
+    toast("⚡ " + entry[2] + " → NIVEAU " + profile[key] + "/" + max + (id === "jump" && profile[key] >= 2 ? " · DOUBLE SAUT ACTIVÉ" : ""))
   }
 `)
-
       code = code.replace('const v = profile[id + "_level"] || 1\n      const cost = 100 * v', 'const v = id === "jump" ? Number(profile.jump_level || 1) : (profile[id + "_level"] || 1)\n      const cost = id === "jump" ? 5000 : 100 * Math.max(1, v)')
       code = code.replace('} else if (G.canDouble) {', '} else if ((profile.jump_level || 1) >= 2 && G.canDouble) {')
       code = code.replace('    const v = profile[key] || 1\n    if (v >= max) return toast("Niveau maximum !")\n    const cost = 100 * v', '    const v = id === "jump" ? Number(profile.jump_level || 1) : (profile[key] || 1)\n    if (v >= max) return toast("Niveau maximum !")\n    const cost = id === "jump" ? 5000 : 100 * Math.max(1, v)')
