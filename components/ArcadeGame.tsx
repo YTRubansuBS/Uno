@@ -6,7 +6,7 @@ const rnd=(a:number,b:number)=>a+Math.random()*(b-a);
 const shuffle=<T,>(a:T[])=>[...a].sort(()=>Math.random()-.5);
 export default function ArcadeGame({id,color,onScore}:Props){
  const canvas=useRef<HTMLCanvasElement>(null);const S=useRef<any>({});const touch=useRef<{x:number;y:number;hold?:boolean}|null>(null);const alive=useRef(true);const best=useRef(0);const onScoreRef=useRef(onScore);
- onScoreRef.current=onScore;
+ useEffect(()=>{onScoreRef.current=onScore},[onScore]);
  useEffect(()=>{const c=canvas.current;if(!c)return;const ctx=c.getContext("2d");if(!ctx)return;let raf=0,last=performance.now();
   let dpr=1;
   const resizeCanvas=()=>{const rect=c.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);const w=Math.max(1,Math.floor(rect.width));const h=Math.max(1,Math.floor(rect.height));c.width=Math.floor(w*dpr);c.height=Math.floor(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);const current=S.current;if(current?.w){current.w=w;current.h=h;if(id==="illegal-runner"){current.ground=current.h*.76;current.y=Math.min(current.y,current.ground)}if(id==="flappy-bird"){current.ground=current.h*.88;current.bird.x=current.w*.34;current.bird.y=Math.min(current.bird.y,current.ground-current.bird.r)}}};
