@@ -2,6 +2,7 @@
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import ArcadeGame from "../components/ArcadeGame";
 import PressureEscape from "../components/PressureEscapeClassic";
+import Game2048 from "../components/Game2048";
 
 type Game={id:string;color:string;name:string;tag:string};
 const GAMES:Game[]=[
@@ -49,7 +50,7 @@ export default function Page(){
 
   useEffect(()=>{
     const down=(e:PointerEvent)=>{
-      if((e.target as HTMLElement|null)?.closest?.("canvas,button,input,a"))return;
+      if((e.target as HTMLElement|null)?.closest?.("canvas,button,input,a,[data-game-surface]"))return;
       startRef.current={x:e.clientX,y:e.clientY};
     };
     const up=(e:PointerEvent)=>{
@@ -60,7 +61,7 @@ export default function Page(){
     };
     const key=(e:KeyboardEvent)=>{
       const target=e.target as HTMLElement|null;
-      if(tutorialOpen||target?.closest?.("canvas,button,input,textarea,select"))return;
+      if(tutorialOpen||target?.closest?.("canvas,button,input,textarea,select,[data-game-surface]"))return;
       if(e.key==="ArrowDown"||e.key==="PageDown"){e.preventDefault();setIndex(i=>Math.min(GAMES.length-1,i+1))}
       if(e.key==="ArrowUp"||e.key==="PageUp"){e.preventDefault();setIndex(i=>Math.max(0,i-1))}
     };
@@ -78,6 +79,7 @@ export default function Page(){
         {current.id==="illegal-runner" ? <iframe className="illegal-runner-frame" src="/illegal-runner/index.html?embed=1" title="Illegal Runner" allow="autoplay; fullscreen"/> :
          current.id==="uno-fou" ? <iframe className="illegal-runner-frame" src="/uno-fou/index.html" title="UNO FOU" allow="autoplay; fullscreen"/> :
          current.id==="pressure" ? <PressureEscape color={current.color} onScore={()=>{}}/> :
+         current.id==="2048" ? <Game2048/> :
          <ArcadeGame id={current.id} color={current.color} onScore={()=>{}}/>}
       </article>
     </section>
