@@ -409,12 +409,14 @@
     shake: 0, startTime: 0, last: 0, acc: 0,
     player: null, obs: [], coinsArr: [], bonuses: [], parts: [],
     world: WORLDS.city, goal: 0,
+    lastObstacleType: "", spawnCount: 0,
   }
   const STEP = 1 / 120 // fixed physics step
 
   function resize() {
     G.W = window.innerWidth
     G.H = window.innerHeight
+    G.groundH = Math.max(92, Math.min(150, Math.round(G.H * 0.15)))
     G.dpr = Math.min(window.devicePixelRatio || 1, 2)
     const c = $("c")
     c.width = G.W * G.dpr
@@ -429,7 +431,8 @@
   /* ---- hitboxes: kept separate from any visual/glow ---- */
   function playerHB() {
     const p = G.player
-    const shrink = G.dashT > 0 ? 14 : 8
+    const portrait = G.H > G.W * 1.08
+    const shrink = G.dashT > 0 ? 15 : portrait ? 10 : 8
     return { x: p.x + shrink, y: p.y + 6, w: p.w - shrink * 2, h: p.h - 10 }
   }
   function obstacleHB(o) {
@@ -470,7 +473,21 @@
     G.gliding = false; G.canDouble = false; G.shake = 0
     G.obs = []; G.coinsArr = []; G.bonuses = []; G.parts = []
     G.goal = level ? 400 + level * 20 : 0
-    G.player = { x: Math.max(80, G.W * 0.2), y: G.groundY - 62, w: 42, h: 62, vy: 0, ground: true, inv: 0, run: 0, sy: 1 }
+    G.lastObstacleType = ""
+    G.spawnCount = 0
+    G.player = {
+      x: Math.max(56, G.W * 0.2),
+      y: G.groundY - 62,
+      w: 42,
+      h: 62,
+      vy: 0,
+      ground: true,
+      coyoteT: 0.11,
+      jumpBufferT: 0,
+      inv: 0,
+      run: 0,
+      sy: 1,
+    }
     $("objective").textContent = level ? (level >= 300 ? "👑 NIVEAU 300" : "NIVEAU " + level) : "INFINI"
     $("over").style.display = "none"
     $("progressWrap").style.display = level ? "block" : "none"
@@ -519,21 +536,27 @@
   /* ---- input ---- */
   function jump() {
     if (!G.running) return
+    const p = G.player
+    p.jumpBufferT = 0.16
     const boost = G.jumpBoostT > 0 ? 1.5 : 1
     const power = (980 + (profile.jump_level || 1) * 45) * boost
-    if (G.player.ground) {
-      G.player.vy = -power
-      G.player.ground = false
+    const groundedEnough = p.ground || p.coyoteT > 0
+    if (groundedEnough) {
+      p.vy = -power
+      p.ground = false
+      p.coyoteT = 0
+      p.jumpBufferT = 0
       G.canDouble = true
-      G.player.sy = 0.7
+      p.sy = 0.7
       SFX.jump()
-      burst(G.player.x + 20, G.player.y + G.player.h, G.world.accent, 8)
-    } else if (G.canDouble) {
-      G.player.vy = -power * 0.9
+      burst(p.x + p.w / 2, p.y + p.h, G.world.accent, 8)
+    } else if (G.canDouble && (profile.jump_level || 1) >= 2) {
+      p.vy = -power * 0.9
       G.canDouble = false
-      G.player.sy = 0.7
+      p.jumpBufferT = 0
+      p.sy = 0.7
       SFX.dbl()
-      burst(G.player.x + 20, G.player.y + G.player.h, "#fff", 10)
+      burst(p.x + p.w / 2, p.y + p.h, "#fff", 10)
     }
     G.gliding = true
   }
@@ -551,33 +574,90 @@
   /* ---- spawning (fair patterns) ---- */
   function spawnObstacle() {
     const gy = G.groundY
-    const set = profile.selected_obstacle_set || "classic"
-    const r = Math.random()
-    // difficulty grows with distance
     const d = G.dist
-    if (r < 0.24) {
-      G.obs.push({ type: "spike", x: G.W + 40, y: gy - 40, w: 42, h: 40, destructible: true })
-    } else if (r < 0.42) {
-      const h = rand(46, Math.min(120, 60 + d * 0.02))
-      G.obs.push({ type: "wall", x: G.W + 40, y: gy - h, w: 30, h })
-    } else if (r < 0.56) {
-      G.obs.push({ type: "car", x: G.W + 40, y: gy - 56, w: 96, h: 56, vx: rand(20, 70) })
-    } else if (r < 0.7) {
-      G.obs.push({ type: "drone", x: G.W + 40, y: gy - rand(150, 200), w: 48, h: 34, destructible: true, bob: rand(0, 6.28), baseY: 0 })
-      G.obs[G.obs.length - 1].baseY = G.obs[G.obs.length - 1].y
-    } else if (r < 0.82) {
-      G.obs.push({ type: "projectile", x: G.W + 40, y: gy - rand(50, 95), w: 28, h: 18, destructible: true, vx: rand(180, 260) })
-    } else if (r < 0.92) {
-      const w = rand(90, Math.min(160, 100 + d * 0.02))
-      G.obs.push({ type: "pit", x: G.W + 40, y: gy, w, h: G.groundH })
+    const portrait = G.H > G.W * 1.08
+    const r = Math.random()
+
+    // The runner never physically collides horizontally, so the only thing
+    // that can make a run feel "stuck" is an unfair sequence. Keep a generous
+    // reaction window, especially on tall phones.
+    const baseX = G.W + Math.max(70, Math.round(G.W * 0.12))
+    let type = ""
+
+    if (d < 35) {
+      // Tutorial-like opening: simple, readable obstacles only.
+      if (r < 0.45) type = "spike"
+      else if (r < 0.72) type = "car"
+      else if (portrait && r < 0.9) type = "drone"
+      else type = "spike"
+    } else if (d < 100) {
+      // Still forgiving: no pits yet.
+      if (r < 0.32) type = "spike"
+      else if (r < 0.56) type = "car"
+      else if (r < 0.74) type = "wall"
+      else if (portrait) type = "drone"
+      else type = "projectile"
     } else {
-      // floating platform + optional spike combo (fair)
-      const py = gy - rand(90, 150)
-      G.obs.push({ type: "platform", x: G.W + 40, y: py, w: 130, h: 16 })
-      if (Math.random() < 0.4) G.obs.push({ type: "spike", x: G.W + 40 + 300, y: gy - 40, w: 42, h: 40, destructible: true })
+      if (r < 0.24) type = "spike"
+      else if (r < 0.43) type = "car"
+      else if (r < 0.58) type = "wall"
+      else if (r < 0.73) type = "drone"
+      else if (r < 0.84) type = "projectile"
+      else if (r < 0.93) type = "pit"
+      else type = "platform"
     }
-    void set
+
+    // Never chain the same lethal pattern back-to-back.
+    if (type === G.lastObstacleType) {
+      const fallback = type === "spike" ? "car" : type === "car" ? "spike" : "spike"
+      type = fallback
+    }
+    G.lastObstacleType = type
+    G.spawnCount++
+
+    if (type === "spike") {
+      G.obs.push({ type, x: baseX, y: gy - 40, w: 42, h: 40, destructible: true })
+    } else if (type === "wall") {
+      const maxWall = portrait ? 96 : 120
+      const h = 46 + IR_SAFE_RANGE(0, Math.min(54, 18 + d * 0.012), portrait)
+      G.obs.push({ type, x: baseX, y: gy - Math.min(maxWall, h), w: portrait ? 34 : 30, h: Math.min(maxWall, h) })
+    } else if (type === "car") {
+      G.obs.push({ type, x: baseX, y: gy - 56, w: portrait ? 86 : 96, h: 56, vx: IR_SAFE_RANGE(18, 52, portrait) })
+    } else if (type === "drone") {
+      const minY = portrait ? 118 : 150
+      const maxY = portrait ? 185 : 205
+      const o = { type, x: baseX, y: gy - IR_SAFE_RANGE(minY, maxY), w: 48, h: 34, destructible: true, bob: IR_SAFE_RANGE(0, 6.28), baseY: 0 }
+      o.baseY = o.y
+      G.obs.push(o)
+    } else if (type === "projectile") {
+      G.obs.push({ type, x: baseX, y: gy - IR_SAFE_RANGE(58, 92), w: 28, h: 18, destructible: true, vx: IR_SAFE_RANGE(140, 220) })
+    } else if (type === "pit") {
+      // Pits are wide enough to be visible, but never the giant 160px traps
+      // that were too punishing on portrait devices.
+      const w = portrait ? IR_SAFE_RANGE(86, 112) : IR_SAFE_RANGE(100, 132)
+      G.obs.push({ type, x: baseX, y: gy, w, h: G.groundH })
+    } else {
+      // A vertical route: floating platform + collectible line. This gives
+      // portrait players something interesting above the ground without
+      // creating an unavoidable wall.
+      const py = gy - IR_SAFE_RANGE(portrait ? 100 : 90, portrait ? 165 : 150)
+      G.obs.push({ type: "platform", x: baseX, y: py, w: portrait ? 142 : 130, h: 16 })
+      if (portrait) {
+        for (let i = 0; i < 3; i++) {
+          G.coinsArr.push({ x: baseX + 30 + i * 42, y: py - 34 - Math.sin((i / 2) * Math.PI) * 12, r: 11 })
+        }
+      }
+    }
   }
+
+  // Safe random helper used by both the original engine and the transformed
+  // loader. It also keeps seeded duel/randomized modes working.
+  function IR_SAFE_RANGE(a, b) {
+    const fn = typeof IR_WORLD_RANDOM === "function" ? IR_WORLD_RANDOM : Math.random
+    const t = Math.max(0, Math.min(1, fn()))
+    return a + t * (b - a)
+  }
+
   function spawnCoins() {
     const n = 4 + ((Math.random() * 3) | 0)
     const baseY = G.groundY - rand(60, 230)
@@ -620,6 +700,8 @@
 
     // gravity / glide
     const grav = 2600
+    if (p.jumpBufferT > 0) p.jumpBufferT -= dt
+    if (!p.ground) p.coyoteT = Math.max(0, (p.coyoteT || 0) - dt)
     p.vy += grav * dt
     if (G.gliding && p.vy > 60) p.vy *= Math.pow(0.15, dt) // slow fall while holding
     p.y += p.vy * dt
@@ -649,13 +731,27 @@
       p.y = supportY - p.h
       if (p.vy > 900) p.sy = 0.75
       p.vy = 0
-      p.ground = true
-      G.canDouble = false
+      if (!p.ground && p.jumpBufferT > 0) {
+        p.ground = true
+        p.coyoteT = 0.11
+        jump()
+      } else {
+        p.ground = true
+        p.coyoteT = 0.11
+        G.canDouble = false
+      }
     } else {
+      if (p.ground) p.coyoteT = 0.11
       p.ground = false
     }
     // fell into pit / off screen
-    if (p.y > G.H + 40) { hurt(true); p.y = G.groundY - p.h; p.vy = 0 }
+    if (p.y > G.H + 40) {
+      hurt(true)
+      p.y = G.groundY - p.h
+      p.vy = 0
+      p.ground = true
+      p.coyoteT = 0.11
+    }
 
     // damaging collisions (visuals & glows are NOT part of these hitboxes)
     const php = playerHB()
@@ -746,6 +842,13 @@
     }
     G.lives--
     p.inv = 1.3
+    p.jumpBufferT = 0
+    if (!fall) {
+      p.y = Math.min(p.y, G.groundY - p.h)
+      p.vy = Math.min(p.vy, -520)
+      p.ground = false
+      p.coyoteT = 0
+    }
     G.shake = Math.max(G.shake, 14)
     SFX.hurt()
     burst(p.x + 20, p.y + 30, "#ff2f7d", 18)
