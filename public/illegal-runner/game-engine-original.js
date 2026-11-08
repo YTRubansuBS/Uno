@@ -1145,10 +1145,24 @@
     $("btnRestart").onclick = restart
     $("btnOverMenu").onclick = quit
 
-    // tap canvas to jump (mobile-friendly)
+    // Tap to jump + swipe-up to double-jump on supported devices.
     const c = $("c")
-    c.addEventListener("pointerdown", (e) => { e.preventDefault(); jump() })
-    c.addEventListener("pointerup", releaseJump)
+    let pointerStartY = null
+    c.addEventListener("pointerdown", (e) => {
+      e.preventDefault()
+      pointerStartY = e.clientY
+      jump()
+    })
+    c.addEventListener("pointerup", (e) => {
+      const dy = (pointerStartY ?? e.clientY) - e.clientY
+      if (dy > 28 && (profile.jump_level || 1) >= 2) jump()
+      pointerStartY = null
+      releaseJump()
+    })
+    c.addEventListener("pointercancel", () => {
+      pointerStartY = null
+      releaseJump()
+    })
 
     // keyboard
     window.addEventListener("keydown", (e) => {
