@@ -75,7 +75,9 @@ export default function PinballGame({ color, onScore }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const state = useRef<any>({});
   const scoreRef = useRef(onScore);
-  scoreRef.current = onScore;
+  useEffect(() => {
+    scoreRef.current = onScore;
+  }, [onScore]);
 
   useEffect(() => {
     const c = canvas.current;
