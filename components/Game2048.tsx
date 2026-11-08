@@ -395,7 +395,7 @@ export default function Game2048() {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         role="application"
-        aria-label="Plateau de 2048. Balaye ou utilise les flèches pour déplacer les tuiles."
+        aria-label="Plateau de 2048 en grille 4 par 4. Balaye pour déplacer les tuiles ou utilise les touches du clavier."
       >
         <div className="sg2048-grid" aria-hidden="true">
           {Array.from({ length: 16 }, (_, index) => (
@@ -404,7 +404,27 @@ export default function Game2048() {
         </div>
 
         <div className="sg2048-tiles">
-
+          {game.tiles.map((tile) => {
+            const colors = tileColor(tile.value);
+            return (
+              <div
+                key={tile.id}
+                className={`sg2048-tile ${tile.born ? "sg2048-tile-born" : ""} ${tile.merged ? "sg2048-tile-merged" : ""}`}
+                style={{
+                  left: `calc(${tile.col} * ((100% - 18px) / 4 + 6px))`,
+                  top: `calc(${tile.row} * ((100% - 18px) / 4 + 6px))`,
+                  width: `calc((100% - 18px) / 4)`,
+                  height: `calc((100% - 18px) / 4)`,
+                  background: colors.background,
+                  color: colors.foreground,
+                  boxShadow: `0 10px 26px ${colors.shadow}, inset 0 1px 0 #ffffff55`,
+                  fontSize: fontSizeFor(tile.value),
+                }}
+              >
+                <span>{tile.value}</span>
+              </div>
+            );
+          })}
         </div>
 
         {phase !== "playing" && (
@@ -427,9 +447,6 @@ export default function Game2048() {
                   <p>Score : {game.score.toLocaleString("fr-FR")}</p>
                   <div className="sg2048-overlay-actions">
                     <button type="button" onClick={newGame}>REJOUER</button>
-                    {history.length > 0 && (
-                      <button type="button" className="secondary" onClick={undo}>ANNULER</button>
-                    )}
                   </div>
                 </>
               )}
