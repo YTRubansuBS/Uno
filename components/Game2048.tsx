@@ -230,7 +230,10 @@ function normalizeStoredGame(value: unknown): GameState | null {
       return null;
     }
 
-    const position = raw.row + "," + raw.col;
+    const row = raw.row as number;
+    const col = raw.col as number;
+    const tileValue = raw.value as number;
+    const position = row + "," + col;
     if (positions.has(position)) return null;
     positions.add(position);
 
@@ -240,9 +243,9 @@ function normalizeStoredGame(value: unknown): GameState | null {
 
     tiles.push({
       id,
-      value: raw.value,
-      row: raw.row,
-      col: raw.col,
+      value: tileValue,
+      row,
+      col,
       born: false,
       merged: false,
     });
