@@ -302,7 +302,7 @@ const IR_UPGRADE_PRICES = {
 
     const completed = Math.max(1, Math.min(IR_MAX_LEVEL, Math.floor(G.level)))
     const highestBefore = Math.max(1, Math.min(IR_MAX_LEVEL, Number(profile.highest_level || 1)))
-    const firstCompletion = completed >= highestBefore
+    const firstCompletion = highestBefore < IR_MAX_LEVEL && completed >= highestBefore
     const reward = firstCompletion ? IR_LEVEL_FIRST_REWARD(completed) : IR_LEVEL_REPLAY_REWARD(completed)
     G.coins = Math.max(0, Math.floor(G.coins || 0)) + reward
 
