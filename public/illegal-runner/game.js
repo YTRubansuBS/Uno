@@ -246,19 +246,18 @@ const IR_UPGRADE_PRICES = {
     const runCoins = Math.max(0, Math.floor(G.coins || 0))
     const completedLevel = Math.max(0, Math.floor(Number(G.level || 0)))
     const mode = completedLevel > 0 ? "level" : "infinite"
-
-    profile.coins = Math.max(0, Number(profile.coins || 0)) + runCoins
-    profile.total_distance = Math.max(0, Number(profile.total_distance || 0)) + distance
-    profile.best_distance = Math.max(Number(profile.best_distance || 0), distance)
-    profile.quest_distance = Math.max(0, Number(profile.quest_distance || 0)) + distance
-    profile.quest_coins = Math.max(0, Number(profile.quest_coins || 0)) + runCoins
-    profile.quest_games = Math.max(0, Number(profile.quest_games || 0)) + 1
-
-    if (completedLevel > 0) {
-      profile.highest_level = Math.max(1, Math.min(IR_MAX_LEVEL, Math.max(Number(profile.highest_level || 1), completedLevel + 1)))
-    }
+    const nextLevel = completedLevel > 0
+      ? Math.max(1, Math.min(IR_MAX_LEVEL, Math.max(Number(profile.highest_level || 1), completedLevel + 1)))
+      : Math.max(1, Math.min(IR_MAX_LEVEL, Number(profile.highest_level || 1)))
 
     if (isGuest || !sb || !user) {
+      profile.coins = Math.max(0, Number(profile.coins || 0)) + runCoins
+      profile.total_distance = Math.max(0, Number(profile.total_distance || 0)) + distance
+      profile.best_distance = Math.max(Number(profile.best_distance || 0), distance)
+      profile.quest_distance = Math.max(0, Number(profile.quest_distance || 0)) + distance
+      profile.quest_coins = Math.max(0, Number(profile.quest_coins || 0)) + runCoins
+      profile.quest_games = Math.max(0, Number(profile.quest_games || 0)) + 1
+      profile.highest_level = nextLevel
       saveLocal()
       refreshTop()
       renderAll()
@@ -272,17 +271,37 @@ const IR_UPGRADE_PRICES = {
         p_distance: distance,
         p_coins: runCoins,
         p_seconds: Math.floor((performance.now() - G.startTime) / 1000),
-        p_highest_level: profile.highest_level || 1
+        p_highest_level: nextLevel
       })
       if (r.error) throw r.error
       if (r.data) Object.assign(profile, r.data)
+      else {
+        profile.coins = Math.max(0, Number(profile.coins || 0)) + runCoins
+        profile.total_distance = Math.max(0, Number(profile.total_distance || 0)) + distance
+        profile.best_distance = Math.max(Number(profile.best_distance || 0), distance)
+        profile.quest_distance = Math.max(0, Number(profile.quest_distance || 0)) + distance
+        profile.quest_coins = Math.max(0, Number(profile.quest_coins || 0)) + runCoins
+        profile.quest_games = Math.max(0, Number(profile.quest_games || 0)) + 1
+        profile.highest_level = nextLevel
+      }
       refreshTop()
       renderAll()
       window.dispatchEvent(new CustomEvent("ir:profileChanged", { detail: r.data || {} }))
     } catch (e) {
       console.error("[IR] finish_run error:", e)
       toast("☁️ Sauvegarde cloud indisponible, progression locale gardée.")
-      try { saveLocal() } catch (e2) {}
+      try {
+        const pending = {
+          mode,
+          level: completedLevel,
+          distance,
+          coins: runCoins,
+          seconds: Math.floor((performance.now() - G.startTime) / 1000),
+          highest_level: nextLevel,
+          at: Date.now()
+        }
+        localStorage.setItem("ir_pending_run", JSON.stringify(pending))
+      } catch (e2) {}
     }
   }
 `)
