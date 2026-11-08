@@ -274,6 +274,7 @@ export default function Game2048() {
     try {
       const storedBest = Number(localStorage.getItem(BEST_KEY));
       const safeBest = Number.isFinite(storedBest) && storedBest >= 0 ? storedBest : 0;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBest(safeBest);
 
       const raw = localStorage.getItem(STORAGE_KEY);
