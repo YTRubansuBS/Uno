@@ -1110,9 +1110,14 @@
     if (!G.running) return
     G.running = false
     cancelAnimationFrame(G.raf)
+    if (!G.level) {
+      const survivalReward = Math.min(10000, 60 + Math.floor(Math.max(0, G.dist || 0) / 100) * 8)
+      G.coins = Math.max(0, Math.floor(G.coins || 0)) + survivalReward
+      toast("🏆 RUN INFINI · +" + survivalReward.toLocaleString("fr-FR") + " pièces")
+    }
     await commonSave()
     SFX.over()
-    showEnd("TU ES MORT")
+    showEnd(G.level ? "TU ES MORT" : "💥 RUN INFINI TERMINÉ")
   }
   function showEnd(title) {
     $("overTitle").textContent = title
