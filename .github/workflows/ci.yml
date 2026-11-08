@@ -51,5 +51,9 @@ jobs:
           if (!captured) throw new Error('Illegal Runner loader did not produce the transformed engine')
           new vm.Script(captured, { filename: 'illegal-runner-transformed.js' })
           if (!captured.includes('IR_EMBED_MODE')) throw new Error('Embed mode was not injected into the transformed engine')
+          for (const token of ['IR_WORLD_RANDOM', 'IR_WORLD_RANGE', 'IR_WORLD_PICK']) {
+            if (!captured.includes(token)) throw new Error('Illegal Runner transformed engine missing RNG helper: ' + token)
+          }
+          if (!indexHtml.includes('id="btnJump"')) throw new Error('Illegal Runner jump control missing')
           console.log('Illegal Runner smoke test: OK')
           NODE
