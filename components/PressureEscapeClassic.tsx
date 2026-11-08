@@ -104,7 +104,9 @@ const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 export default function PressureEscapeClassic({ color, onScore }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scoreRef = useRef(onScore);
-  scoreRef.current = onScore;
+  useEffect(() => {
+    scoreRef.current = onScore;
+  }, [onScore]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
