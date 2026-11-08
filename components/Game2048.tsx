@@ -7,8 +7,8 @@ type Tile = {
   value: number;
   row: number;
   col: number;
-  born?: boolean;
-  merged?: boolean;
+  born: boolean;
+  merged: boolean;
 };
 
 type Snapshot = {
@@ -243,7 +243,8 @@ export default function Game2048() {
 
   useEffect(() => {
     try {
-      setBest(Number(localStorage.getItem(BEST_KEY)) || 0);
+      const storedBest = Number(localStorage.getItem(BEST_KEY)) || 0;
+      setBest(storedBest);
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw);
