@@ -261,6 +261,10 @@ export default function Game2048() {
           won: Boolean(parsed.won),
           continued: Boolean(parsed.continued),
         });
+        if (parsed.score > storedBest) {
+          setBest(parsed.score);
+          try { localStorage.setItem(BEST_KEY, String(parsed.score)); } catch {}
+        }
         if (parsed.won && !parsed.continued) setPhase("won");
         else if (!canMove(parsed.tiles)) setPhase("gameover");
       }
@@ -468,6 +472,10 @@ export default function Game2048() {
   }, [continueGame, game.continued, history.length, move, newGame, phase, undo]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement | null)?.closest("button")) {
+      pointerStart.current = null;
+      return;
+    }
     pointerStart.current = {
       x: event.clientX,
       y: event.clientY,
@@ -479,6 +487,10 @@ export default function Game2048() {
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement | null)?.closest("button")) {
+      pointerStart.current = null;
+      return;
+    }
     const start = pointerStart.current;
     if (!start || start.pointerId !== event.pointerId) return;
     pointerStart.current = null;
@@ -635,7 +647,7 @@ export default function Game2048() {
       </div>
 
       <div className="sg2048-controls">
-        <button type="button" className="sg2048-undo" onClick={undo} disabled={!history.length || phase === "gameover"}>
+        <button type="button" className="sg2048-undo" onClick={undo} disabled={!history.length}>
           <span>↶</span>
           ANNULER
           <em>{history.length}/{MAX_UNDO}</em>
