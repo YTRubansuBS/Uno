@@ -11,19 +11,10 @@ type Tile = {
   merged: boolean;
 };
 
-type Snapshot = {
-  tiles: Tile[];
-  score: number;
-  moves: number;
-  won: boolean;
-  continued: boolean;
-};
-
 type Direction = "left" | "up" | "right" | "down";
 
 const SIZE = 4;
 const TARGET = 2048;
-const MAX_UNDO = 5;
 const STORAGE_KEY = "scroll-game-2048-v3";
 const BEST_KEY = "sg-best-2048";
 const INPUT_LOCK_MS = 105;
@@ -65,8 +56,6 @@ const fontSizeFor = (value: number) => {
   if (value >= 100) return "clamp(24px, 6.2vw, 36px)";
   return "clamp(28px, 7vw, 44px)";
 };
-
-const cloneTiles = (tiles: Tile[]) => tiles.map((t) => ({ ...t, born: false, merged: false }));
 
 function compressLine(line: Tile[]) {
   const sorted = [...line].sort((a, b) => a.col - b.col);
@@ -232,12 +221,10 @@ function makeFreshGame() {
 export default function Game2048() {
   const [game, setGame] = useState(() => makeFreshGame());
   const [best, setBest] = useState(0);
-  const [history, setHistory] = useState<Snapshot[]>([]);
   const [phase, setPhase] = useState<"playing" | "won" | "gameover">("playing");
   const [tip, setTip] = useState("SWIPE OU UTILISE LES FLÈCHES");
   const inputLocked = useRef(false);
   const boardRef = useRef<HTMLDivElement>(null);
-  const lastTap = useRef(0);
   const pointerStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const saveTimer = useRef<number | null>(null);
@@ -321,172 +308,11 @@ export default function Game2048() {
 
   const newGame = useCallback(() => {
     inputLocked.current = false;
-    setHistory([]);
     setPhase("playing");
     setGame(makeFreshGame());
     setTip("NOUVELLE PARTIE • À TOI");
     beep(520, 0.07, 0.02);
   }, [beep]);
-
-  const undo = useCallback(() => {
-    if (inputLocked.current || !history.length) return;
-    const previous = history[history.length - 1];
-    setHistory((items) => items.slice(0, -1));
-    setGame({
-      tiles: cloneTiles(previous.tiles),
-      score: previous.score,
-      moves: previous.moves,
-      won: previous.won,
-      continued: previous.continued,
-    });
-    setPhase(previous.won && !previous.continued ? "won" : "playing");
-    setTip("COUP ANNULÉ");
-    beep(320, 0.07, 0.022);
-  }, [history, phase, beep]);
-
-  const move = useCallback(
-    (direction: Direction) => {
-      if (inputLocked.current || phase === "gameover") return;
-      if (phase === "won" && !game.continued) return;
-
-      const result = buildMovedTiles(game.tiles, direction);
-      if (!result.changed) {
-        setTip("IMPOSSIBLE DANS CETTE DIRECTION");
-        beep(170, 0.035, 0.012);
-        return;
-      }
-
-      inputLocked.current = true;
-      window.setTimeout(() => {
-        inputLocked.current = false;
-      }, INPUT_LOCK_MS);
-
-      const snapshot: Snapshot = {
-        tiles: cloneTiles(game.tiles),
-        score: game.score,
-        moves: game.moves,
-        won: game.won,
-        continued: game.continued,
-      };
-
-      const nextTiles = result.tiles;
-      const spawned = spawnTile(nextTiles);
-      if (spawned) nextTiles.push(spawned);
-
-      const nextScore = game.score + result.scoreGain;
-      const nextMoves = game.moves + 1;
-      const reachedTarget =
-        nextTiles.some((tile) => tile.value >= TARGET) &&
-        !game.won &&
-        !game.continued;
-      const noMoves = nextTiles.length >= SIZE * SIZE && !canMove(nextTiles);
-
-      setHistory((items) => [...items, snapshot].slice(-MAX_UNDO));
-      setGame({
-        tiles: nextTiles,
-        score: nextScore,
-        moves: nextMoves,
-        won: game.won || reachedTarget,
-        continued: game.continued,
-      });
-
-      const newBest = Math.max(best, nextScore);
-      if (newBest !== best) {
-        setBest(newBest);
-        try {
-          localStorage.setItem(BEST_KEY, String(newBest));
-        } catch {}
-      }
-
-      if (reachedTarget) {
-        setPhase("won");
-        setTip("2048 ATTEINT • TU PEUX CONTINUER");
-        beep(880, 0.1, 0.035);
-        window.setTimeout(() => beep(1175, 0.13, 0.03), 60);
-      } else if (noMoves) {
-        setPhase("gameover");
-        setTip("PLUS AUCUN COUP");
-        beep(120, 0.18, 0.04);
-      } else if (result.scoreGain > 0) {
-        setTip(`+${result.scoreGain} • ${direction.toUpperCase()}`);
-        beep(Math.min(900, 260 + result.scoreGain / 2), 0.045, 0.018);
-      } else {
-        setTip(direction.toUpperCase());
-      }
-    },
-    [best, beep, game, phase],
-  );
-
-  const continueGame = useCallback(() => {
-    setPhase("playing");
-    setGame((current) => ({ ...current, continued: true }));
-    setTip("CONTINUE • VISE 4096");
-    beep(700, 0.08, 0.025);
-  }, [beep]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("button,input,textarea,select,a")) return;
-
-      const key = event.key.toLowerCase();
-      const map: Record<string, Direction> = {
-        arrowleft: "left",
-        a: "left",
-        arrowup: "up",
-        w: "up",
-        arrowright: "right",
-        d: "right",
-        arrowdown: "down",
-        s: "down",
-      };
-
-      if (map[key]) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        void move(map[key]);
-        return;
-      }
-
-      if ((key === "z" || key === "u" || key === "backspace") && history.length) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        void undo();
-        return;
-      }
-
-      if (key === "r" || key === "n") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        void newGame();
-        return;
-      }
-
-      if (event.key === "Enter" && phase === "won" && !game.continued) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        void continueGame();
-      }
-    };
-
-    window.addEventListener("keydown", onKey, { capture: true });
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [continueGame, game.continued, history.length, move, newGame, phase, undo]);
-
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement | null)?.closest("button")) {
-      pointerStart.current = null;
-      return;
-    }
-    pointerStart.current = {
-      x: event.clientX,
-      y: event.clientY,
-      pointerId: event.pointerId,
-    };
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {}
-  };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement | null)?.closest("button")) {
@@ -507,13 +333,6 @@ export default function Game2048() {
       return;
     }
 
-    const now = performance.now();
-    if (now - lastTap.current < 300 && history.length) {
-      undo();
-      lastTap.current = 0;
-    } else {
-      lastTap.current = now;
-    }
   };
 
   const onPointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -584,27 +403,9 @@ export default function Game2048() {
           ))}
         </div>
 
-        {game.tiles.map((tile) => {
-          const colors = tileColor(tile.value);
-          return (
-            <div
-              key={tile.id}
-              className={`sg2048-tile ${tile.born ? "sg2048-tile-born" : ""} ${tile.merged ? "sg2048-tile-merged" : ""}`}
-              style={{
-                left: `calc(${tile.col} * (100% - 18px) / 4 + 4px)`,
-                top: `calc(${tile.row} * (100% - 18px) / 4 + 4px)`,
-                width: `calc((100% - 18px) / 4)`,
-                height: `calc((100% - 18px) / 4)`,
-                background: colors.background,
-                color: colors.foreground,
-                boxShadow: `0 10px 26px ${colors.shadow}, inset 0 1px 0 #ffffff55`,
-                fontSize: fontSizeFor(tile.value),
-              }}
-            >
-              <span>{tile.value}</span>
-            </div>
-          );
-        })}
+        <div className="sg2048-tiles">
+
+        </div>
 
         {phase !== "playing" && (
           <div className={`sg2048-overlay ${phase === "won" ? "sg2048-overlay-win" : ""}`}>
@@ -648,28 +449,8 @@ export default function Game2048() {
         <span>{emptyCount} CASES LIBRES</span>
       </div>
 
-      <div className="sg2048-controls">
-        <button type="button" className="sg2048-undo" onClick={undo} disabled={!history.length}>
-          <span>↶</span>
-          ANNULER
-          <em>{history.length}/{MAX_UNDO}</em>
-        </button>
-        <div className="sg2048-pad" aria-label="Contrôles directionnels">
-          <button type="button" aria-label="Monter" onClick={() => move("up")}>↑</button>
-          <div>
-            <button type="button" aria-label="Gauche" onClick={() => move("left")}>←</button>
-            <button type="button" aria-label="Descendre" onClick={() => move("down")}>↓</button>
-            <button type="button" aria-label="Droite" onClick={() => move("right")}>→</button>
-          </div>
-        </div>
-        <div className="sg2048-help">
-          <span>PC</span>
-          <b>W A S D</b>
-          <span>OU FLÈCHES</span>
-          <span>↓</span>
-          <b>SWIPE</b>
-          <span>SUR MOBILE</span>
-        </div>
+      <div className="sg2048-bottom-hint">
+        <span>SWIPE</span><b>← ↑ → ↓</b><span>OU</span><b>W A S D</b><span>POUR JOUER</span>
       </div>
     </div>
   );
