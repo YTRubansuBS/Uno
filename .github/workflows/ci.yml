@@ -25,3 +25,31 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+      - name: Illegal Runner static JavaScript smoke test
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const vm = require('vm')
+          const indexHtml = fs.readFileSync('public/illegal-runner/index.html', 'utf8')
+          const loader = fs.readFileSync('public/illegal-runner/game.js', 'utf8')
+          const engine = fs.readFileSync('public/illegal-runner/game-engine-original.js', 'utf8')
+          const ids = new Set([...indexHtml.matchAll(/\\bid=["']([^"']+)["']/g)].map(m => m[1]))
+          const refs = [...engine.matchAll(/\\$\\(\\s*["']([^"']+)["']\\s*\\)/g)].map(m => m[1])
+          const missing = [...new Set(refs.filter(id => !ids.has(id)))]
+          if (missing.length) throw new Error('Illegal Runner missing DOM ids: ' + missing.join(', '))
+          new vm.Script(engine, { filename: 'game-engine-original.js' })
+          new vm.Script(loader, { filename: 'game.js' })
+          let captured = ''
+          const document = { head: { appendChild(node) { captured = String(node.textContent || '') } }, getElementById() { return null } }
+          const window = { IR_EMBED_MODE: true }
+          const context = { console, document, window, location: { search: '?embed=1' }, URLSearchParams, setTimeout, clearTimeout, Math, globalThis: null }
+          context.globalThis = context
+          context.fetch = async () => ({ ok: true, text: async () => engine })
+          vm.runInNewContext(loader, context, { filename: 'game.js', timeout: 5000 })
+          setTimeout(() => {}, 0)
+          await new Promise(resolve => setTimeout(resolve, 40))
+          if (!captured) throw new Error('Illegal Runner loader did not produce the transformed engine')
+          new vm.Script(captured, { filename: 'illegal-runner-transformed.js' })
+          if (!captured.includes('IR_EMBED_MODE')) throw new Error('Embed mode was not injected into the transformed engine')
+          console.log('Illegal Runner smoke test: OK')
+          NODE
