@@ -97,6 +97,133 @@ button.icon{padding:10px 12px;background:#0a1a30}
 .card h3{margin:6px 0}
 .card p{margin:6px 0;font-size:13px}
 .card.highlight{border-color:var(--gold);background:linear-gradient(150deg,#2a230b,#120d05)}
+
+/* ================= PROGRESSION SYSTEM ================= */
+.ir-upgrade-summary{
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:2px;
+}
+.ir-upgrade-summary>div{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:12px 14px;
+  border:1px solid #204a70;
+  border-radius:16px;
+  background:linear-gradient(145deg,#0b2037,#060f1d);
+}
+.ir-upgrade-summary span{font-size:22px}
+.ir-upgrade-summary b{
+  font-family:Orbitron,monospace;
+  font-size:17px;
+  color:#fff;
+}
+.ir-upgrade-summary small{
+  margin-left:auto;
+  color:var(--muted);
+  font:900 9px/1 Orbitron,monospace;
+  letter-spacing:1.5px;
+}
+.ir-upgrade-card{
+  position:relative;
+  overflow:hidden;
+  border-color:#24517a;
+  background:
+    radial-gradient(circle at 100% 0%,#00e5ff10,transparent 42%),
+    linear-gradient(150deg,#0a1f36,#050c17);
+}
+.ir-upgrade-card.is-maxed{
+  border-color:#54ffc155;
+}
+.ir-upgrade-card:after{
+  content:"";
+  position:absolute;
+  inset:-80px auto auto -40px;
+  width:120px;
+  height:120px;
+  border-radius:50%;
+  background:#00e5ff08;
+  pointer-events:none;
+}
+.ir-upgrade-head{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+}
+.ir-upgrade-head .emoji{
+  font-size:30px;
+  min-width:42px;
+  text-align:center;
+}
+.ir-upgrade-head h3{margin:2px 0 3px}
+.ir-upgrade-head p{margin:0;font-size:11px;line-height:1.35}
+.ir-upgrade-level{
+  margin-top:12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:11px;
+  color:var(--muted);
+}
+.ir-upgrade-level b{color:var(--cyan);font-family:Orbitron,monospace;font-size:10px}
+.ir-upgrade-stat{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:9px 10px;
+  margin-top:8px;
+  border-radius:11px;
+  border:1px solid #1a3956;
+  background:#04101d;
+}
+.ir-upgrade-stat span{color:var(--muted);font-size:11px}
+.ir-upgrade-stat b{font-size:12px}
+.ir-upgrade-stat.next{
+  border-color:#00e5ff33;
+  background:#00e5ff08;
+}
+.ir-upgrade-duration{
+  margin-top:10px;
+  padding:8px 10px;
+  border-radius:11px;
+  background:#020914;
+  border:1px solid #17344e;
+}
+.ir-duration-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:7px;
+}
+.ir-duration{
+  min-width:45px;
+  padding:7px 9px;
+  border-radius:9px;
+  border:1px solid #294663;
+  background:#081a2c;
+  box-shadow:none;
+  font-size:11px;
+}
+.ir-duration.active{
+  border-color:#00e5ff;
+  background:#00e5ff18;
+  color:#fff;
+  box-shadow:0 0 14px #00e5ff18;
+}
+.ir-upgrade-buy{
+  width:100%;
+  margin-top:12px;
+  min-height:44px;
+  font-size:11px;
+}
+@media(max-width:680px){
+  .ir-upgrade-summary{grid-template-columns:1fr}
+  .ir-upgrade-summary>div{min-height:50px}
+}
 .card .emoji{font-size:34px}
 .card .rarity{font:900 10px/1 Orbitron,monospace;letter-spacing:2px;color:var(--muted)}
 .progress{height:8px;background:#02101d;border-radius:999px;overflow:hidden;margin:8px 0}
