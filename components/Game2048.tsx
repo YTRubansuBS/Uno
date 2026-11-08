@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 type Tile = {
   id: number;
@@ -12,6 +12,13 @@ type Tile = {
 };
 
 type Direction = "left" | "up" | "right" | "down";
+type GameState = {
+  tiles: Tile[];
+  score: number;
+  moves: number;
+  won: boolean;
+  continued: boolean;
+};
 
 const SIZE = 4;
 const TARGET = 2048;
@@ -43,7 +50,7 @@ const tileColor = (value: number) => {
   if (colors[value]) return colors[value];
   const power = Math.max(0, Math.min(20, Math.log2(value) - 11));
   return {
-    background: `hsl(${38 + power * 3} 82% ${52 - power * 1.2}%)`,
+    background: "hsl(" + (38 + power * 3) + " 82% " + (52 - power * 1.2) + "%)",
     foreground: "#fff",
     shadow: "#ffc14d88",
   };
@@ -58,28 +65,27 @@ const fontSizeFor = (value: number) => {
 };
 
 function compressLine(line: Tile[]) {
-  const sorted = [...line].sort((a, b) => a.col - b.col);
+  const ordered = [...line];
   const result: Tile[] = [];
   const mergedIds: number[] = [];
 
-  for (let i = 0; i < sorted.length; i++) {
-    const current = sorted[i];
-    const next = sorted[i + 1];
+  for (let i = 0; i < ordered.length; i++) {
+    const current = ordered[i];
+    const next = ordered[i + 1];
 
     if (next && current.value === next.value) {
-      const merged: Tile = {
+      result.push({
         id: current.id,
         value: current.value * 2,
         row: current.row,
         col: current.col,
         born: false,
         merged: true,
-      };
-      result.push(merged);
+      });
       mergedIds.push(current.id, next.id);
-      i++;
+      i += 1;
     } else {
-      result.push({ ...current });
+      result.push({ ...current, born: false, merged: false });
     }
   }
 
@@ -87,93 +93,68 @@ function compressLine(line: Tile[]) {
 }
 
 function buildMovedTiles(tiles: Tile[], direction: Direction) {
-  const { row: dr, col: dc } = directionDelta[direction];
-  const groups: Tile[][] = [];
-
-  if (direction === "left" || direction === "right") {
-    for (let row = 0; row < SIZE; row++) {
-      groups.push(
-        tiles
-          .filter((t) => t.row === row)
-          .sort((a, b) => (direction === "left" ? a.col - b.col : b.col - a.col)),
-      );
-    }
-  } else {
-    for (let col = 0; col < SIZE; col++) {
-      groups.push(
-        tiles
-          .filter((t) => t.col === col)
-          .sort((a, b) => (direction === "up" ? a.row - b.row : b.row - a.row)),
-      );
-    }
-  }
-
   const moved: Tile[] = [];
   let scoreGain = 0;
   const mergedIds: number[] = [];
 
-  for (const group of groups) {
-    let cursor = direction === "left" || direction === "up" ? 0 : SIZE - 1;
-
-    const line = group.map((tile) => ({ ...tile, born: false, merged: false }));
-    const cells = direction === "left" || direction === "right"
-      ? line.map((tile) => ({ ...tile, col: tile.col }))
-      : line.map((tile) => ({ ...tile, col: tile.row }));
-
-    if (direction === "right" || direction === "down") cells.reverse();
-
-    const { result, mergedIds: localMerged } = compressLine(
-      cells.map((tile, index) => ({ ...tile, col: index })),
-    );
-
-    const restored = result.map((tile) => {
-      const next = { ...tile };
-      if (direction === "left" || direction === "right") {
-        next.row = group[0]?.row ?? 0;
-        next.col = direction === "left" ? cursor : SIZE - 1 - cursor;
-      } else {
-        next.col = group[0]?.col ?? 0;
-        next.row = direction === "up" ? cursor : SIZE - 1 - cursor;
-      }
-      cursor += 1;
-      scoreGain += next.merged ? next.value : 0;
-      return next;
+  for (let lineIndex = 0; lineIndex < SIZE; lineIndex++) {
+    const group = (direction === "left" || direction === "right"
+      ? tiles.filter((tile) => tile.row === lineIndex)
+      : tiles.filter((tile) => tile.col === lineIndex)
+    ).sort((a, b) => {
+      const aPos = direction === "left" || direction === "right" ? a.col : a.row;
+      const bPos = direction === "left" || direction === "right" ? b.col : b.row;
+      return direction === "left" || direction === "up" ? aPos - bPos : bPos - aPos;
     });
 
-    moved.push(...restored);
-    for (const id of localMerged) mergedIds.push(id);
+    const { result, mergedIds: localMerged } = compressLine(group);
+    const movementFromSide = direction === "left" || direction === "up";
+
+    result.forEach((tile, index) => {
+      const destination = movementFromSide ? index : SIZE - 1 - index;
+      const next = { ...tile, born: false };
+
+      if (direction === "left" || direction === "right") {
+        next.row = lineIndex;
+        next.col = destination;
+      } else {
+        next.col = lineIndex;
+        next.row = destination;
+      }
+
+      if (next.merged) scoreGain += next.value;
+      moved.push(next);
+    });
+
+    mergedIds.push(...localMerged);
   }
 
-  const oldSignature = tiles
-    .map((t) => `${t.row},${t.col},${t.value},${t.id}`)
-    .sort()
-    .join("|");
-  const newSignature = moved
-    .map((t) => `${t.row},${t.col},${t.value},${t.id}`)
-    .sort()
-    .join("|");
-
-  const changed =
-    oldSignature !== newSignature ||
-    moved.length !== tiles.length ||
-    moved.some((tile) => tile.merged);
+  const signature = (items: Tile[]) =>
+    items
+      .map((tile) => tile.row + "," + tile.col + "," + tile.value + "," + tile.id)
+      .sort()
+      .join("|");
 
   return {
-    tiles: moved.map((tile) => ({ ...tile, born: false })),
+    tiles: moved,
     scoreGain,
     mergedIds: [...new Set(mergedIds)],
-    changed,
-    delta: { dr, dc },
+    changed: signature(tiles) !== signature(moved),
+    delta: directionDelta[direction],
   };
 }
 
 function canMove(tiles: Tile[]) {
   if (tiles.length < SIZE * SIZE) return true;
-  const map = new Map(tiles.map((tile) => [`${tile.row},${tile.col}`, tile.value]));
 
+  const map = new Map(tiles.map((tile) => [tile.row + "," + tile.col, tile.value]));
   for (const tile of tiles) {
-    if (tile.col < SIZE - 1 && map.get(`${tile.row},${tile.col + 1}`) === tile.value) return true;
-    if (tile.row < SIZE - 1 && map.get(`${tile.row + 1},${tile.col}`) === tile.value) return true;
+    if (
+      (tile.col < SIZE - 1 && map.get(tile.row + "," + (tile.col + 1)) === tile.value) ||
+      (tile.row < SIZE - 1 && map.get((tile.row + 1) + "," + tile.col) === tile.value)
+    ) {
+      return true;
+    }
   }
   return false;
 }
@@ -182,17 +163,19 @@ function highestTile(tiles: Tile[]) {
   return tiles.reduce((max, tile) => Math.max(max, tile.value), 0);
 }
 
+let tileIdSeed = Date.now();
 function createTileId() {
-  return Date.now() + Math.floor(Math.random() * 1000000);
+  tileIdSeed += 1;
+  return tileIdSeed;
 }
 
 function spawnTile(tiles: Tile[]): Tile | null {
-  const occupied = new Set(tiles.map((tile) => `${tile.row},${tile.col}`));
+  const occupied = new Set(tiles.map((tile) => tile.row + "," + tile.col));
   const empty: Array<{ row: number; col: number }> = [];
 
   for (let row = 0; row < SIZE; row++) {
     for (let col = 0; col < SIZE; col++) {
-      if (!occupied.has(`${row},${col}`)) empty.push({ row, col });
+      if (!occupied.has(row + "," + col)) empty.push({ row, col });
     }
   }
 
@@ -209,7 +192,7 @@ function spawnTile(tiles: Tile[]): Tile | null {
   };
 }
 
-function makeFreshGame() {
+function makeFreshGame(): GameState {
   const tiles: Tile[] = [];
   const first = spawnTile(tiles);
   if (first) tiles.push(first);
@@ -218,46 +201,102 @@ function makeFreshGame() {
   return { tiles, score: 0, moves: 0, won: false, continued: false };
 }
 
+function normalizeStoredGame(value: unknown): GameState | null {
+  if (!value || typeof value !== "object") return null;
+
+  const source = value as Partial<GameState> & { tiles?: unknown };
+  if (!Array.isArray(source.tiles) || source.tiles.length < 1 || source.tiles.length > SIZE * SIZE) return null;
+  if (!Number.isFinite(source.score) || source.score! < 0 || !Number.isInteger(source.score)) return null;
+  if (!Number.isFinite(source.moves) || source.moves! < 0 || !Number.isInteger(source.moves)) return null;
+
+  const positions = new Set<string>();
+  const ids = new Set<number>();
+  const tiles: Tile[] = [];
+
+  for (const rawTile of source.tiles) {
+    if (!rawTile || typeof rawTile !== "object") return null;
+    const raw = rawTile as Partial<Tile>;
+    if (
+      !Number.isInteger(raw.row) ||
+      !Number.isInteger(raw.col) ||
+      raw.row! < 0 ||
+      raw.row! >= SIZE ||
+      raw.col! < 0 ||
+      raw.col! >= SIZE ||
+      !Number.isInteger(raw.value) ||
+      raw.value! < 2 ||
+      (Math.log2(raw.value!) % 1) !== 0
+    ) {
+      return null;
+    }
+
+    const position = raw.row + "," + raw.col;
+    if (positions.has(position)) return null;
+    positions.add(position);
+
+    let id = Number(raw.id);
+    if (!Number.isFinite(id) || ids.has(id)) id = createTileId();
+    ids.add(id);
+
+    tiles.push({
+      id,
+      value: raw.value,
+      row: raw.row,
+      col: raw.col,
+      born: false,
+      merged: false,
+    });
+  }
+
+  return {
+    tiles,
+    score: source.score!,
+    moves: source.moves!,
+    won: Boolean(source.won),
+    continued: Boolean(source.continued),
+  };
+}
+
 export default function Game2048() {
-  const [game, setGame] = useState(() => makeFreshGame());
+  const [game, setGame] = useState<GameState>(() => makeFreshGame());
   const [best, setBest] = useState(0);
   const [phase, setPhase] = useState<"playing" | "won" | "gameover">("playing");
-  const [tip, setTip] = useState("SWIPE OU UTILISE LES FLÈCHES");
+  const [tip, setTip] = useState("SWIPE OU FLÈCHES / WASD");
   const inputLocked = useRef(false);
-  const boardRef = useRef<HTMLDivElement>(null);
   const pointerStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const saveTimer = useRef<number | null>(null);
 
   useEffect(() => {
     try {
-      const storedBest = Number(localStorage.getItem(BEST_KEY)) || 0;
-      setBest(storedBest);
+      const storedBest = Number(localStorage.getItem(BEST_KEY));
+      const safeBest = Number.isFinite(storedBest) && storedBest >= 0 ? storedBest : 0;
+      setBest(safeBest);
+
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (
-        parsed &&
-        Array.isArray(parsed.tiles) &&
-        parsed.tiles.length > 0 &&
-        typeof parsed.score === "number" &&
-        typeof parsed.moves === "number"
-      ) {
-        setGame({
-          tiles: parsed.tiles.map((t: Tile) => ({ ...t, born: false, merged: false })),
-          score: parsed.score,
-          moves: parsed.moves,
-          won: Boolean(parsed.won),
-          continued: Boolean(parsed.continued),
-        });
-        if (parsed.score > storedBest) {
-          setBest(parsed.score);
-          try { localStorage.setItem(BEST_KEY, String(parsed.score)); } catch {}
-        }
-        if (parsed.won && !parsed.continued) setPhase("won");
-        else if (!canMove(parsed.tiles)) setPhase("gameover");
+
+      const parsed = normalizeStoredGame(JSON.parse(raw));
+      if (!parsed) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
       }
-    } catch {}
+
+      setGame(parsed);
+      const nextBest = Math.max(safeBest, parsed.score);
+      if (nextBest !== safeBest) {
+        setBest(nextBest);
+        localStorage.setItem(BEST_KEY, String(nextBest));
+      }
+
+      if (parsed.won && !parsed.continued) setPhase("won");
+      else if (!canMove(parsed.tiles)) setPhase("gameover");
+    } catch {
+      // A malformed local save should never block the game.
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {}
+    }
   }, []);
 
   useEffect(() => {
@@ -275,6 +314,7 @@ export default function Game2048() {
         );
       } catch {}
     }, 120);
+
     saveTimer.current = id;
     return () => window.clearTimeout(id);
   }, [game]);
@@ -293,6 +333,7 @@ export default function Game2048() {
       if (!audioRef.current) audioRef.current = new AudioContext();
       const audio = audioRef.current;
       if (audio.state === "suspended") void audio.resume();
+
       const oscillator = audio.createOscillator();
       const gainNode = audio.createGain();
       oscillator.type = "sine";
@@ -308,20 +349,152 @@ export default function Game2048() {
 
   const newGame = useCallback(() => {
     inputLocked.current = false;
+    pointerStart.current = null;
     setPhase("playing");
     setGame(makeFreshGame());
     setTip("NOUVELLE PARTIE • À TOI");
     beep(520, 0.07, 0.02);
   }, [beep]);
 
-  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+  const move = useCallback(
+    (direction: Direction) => {
+      if (inputLocked.current || phase === "gameover") return;
+      if (phase === "won" && !game.continued) return;
+
+      const result = buildMovedTiles(game.tiles, direction);
+      if (!result.changed) {
+        setTip("IMPOSSIBLE DANS CETTE DIRECTION");
+        beep(170, 0.035, 0.012);
+        return;
+      }
+
+      inputLocked.current = true;
+      window.setTimeout(() => {
+        inputLocked.current = false;
+      }, INPUT_LOCK_MS);
+
+      const nextTiles = result.tiles;
+      const spawned = spawnTile(nextTiles);
+      if (spawned) nextTiles.push(spawned);
+
+      const nextScore = game.score + result.scoreGain;
+      const nextMoves = game.moves + 1;
+      const reachedTarget =
+        nextTiles.some((tile) => tile.value >= TARGET) &&
+        !game.won &&
+        !game.continued;
+      const noMoves = nextTiles.length >= SIZE * SIZE && !canMove(nextTiles);
+
+      setGame({
+        tiles: nextTiles,
+        score: nextScore,
+        moves: nextMoves,
+        won: game.won || reachedTarget,
+        continued: game.continued,
+      });
+
+      const newBest = Math.max(best, nextScore);
+      if (newBest !== best) {
+        setBest(newBest);
+        try {
+          localStorage.setItem(BEST_KEY, String(newBest));
+        } catch {}
+      }
+
+      if (reachedTarget) {
+        setPhase("won");
+        setTip("2048 ATTEINT • TU PEUX CONTINUER");
+        beep(880, 0.1, 0.035);
+        window.setTimeout(() => beep(1175, 0.13, 0.03), 60);
+      } else if (noMoves) {
+        setPhase("gameover");
+        setTip("PLUS AUCUN COUP");
+        beep(120, 0.18, 0.04);
+      } else if (result.scoreGain > 0) {
+        setTip("+" + result.scoreGain + " • " + direction.toUpperCase());
+        beep(Math.min(900, 260 + result.scoreGain / 2), 0.045, 0.018);
+      } else {
+        setTip(direction.toUpperCase());
+      }
+    },
+    [best, beep, game, phase],
+  );
+
+  const continueGame = useCallback(() => {
+    setPhase("playing");
+    setGame((current) => ({ ...current, continued: true }));
+    setTip("CONTINUE • VISE 4096");
+    beep(700, 0.08, 0.025);
+  }, [beep]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("button,input,textarea,select,a")) return;
+
+      const key = event.key.toLowerCase();
+      const map: Record<string, Direction> = {
+        arrowleft: "left",
+        a: "left",
+        arrowup: "up",
+        w: "up",
+        arrowright: "right",
+        d: "right",
+        arrowdown: "down",
+        s: "down",
+      };
+
+      if (map[key]) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        move(map[key]);
+        return;
+      }
+
+      if (key === "r" || key === "n") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        newGame();
+        return;
+      }
+
+      if (event.key === "Enter" && phase === "won" && !game.continued) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        continueGame();
+      }
+    };
+
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [continueGame, game.continued, move, newGame, phase]);
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement | null)?.closest("button")) {
       pointerStart.current = null;
       return;
     }
+
+    pointerStart.current = {
+      x: event.clientX,
+      y: event.clientY,
+      pointerId: event.pointerId,
+    };
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {}
+  };
+
+  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement | null)?.closest("button")) {
+      pointerStart.current = null;
+      return;
+    }
+
     const start = pointerStart.current;
-    if (!start || start.pointerId !== event.pointerId) return;
     pointerStart.current = null;
+    if (!start || start.pointerId !== event.pointerId) return;
 
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
@@ -330,12 +503,14 @@ export default function Game2048() {
     if (distance >= 30) {
       if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? "right" : "left");
       else move(dy > 0 ? "down" : "up");
-      return;
     }
 
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {}
   };
 
-  const onPointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
     pointerStart.current = null;
     try {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -343,7 +518,7 @@ export default function Game2048() {
   };
 
   const occupied = useMemo(
-    () => new Set(game.tiles.map((tile) => `${tile.row},${tile.col}`)),
+    () => new Set(game.tiles.map((tile) => tile.row + "," + tile.col)),
     [game.tiles],
   );
 
@@ -352,7 +527,7 @@ export default function Game2048() {
   const progress = Math.max(0, Math.min(100, (Math.log2(Math.max(2, maxTile)) / 11) * 100));
 
   return (
-    <div className="sg2048-root" data-game-surface="true">
+    <div className="sg2048-root">
       <div className="sg2048-aura sg2048-aura-a" />
       <div className="sg2048-aura sg2048-aura-b" />
 
@@ -389,8 +564,8 @@ export default function Game2048() {
       </div>
 
       <div
-        ref={boardRef}
-        className={`sg2048-board ${phase !== "playing" ? "sg2048-board-paused" : ""}`}
+        className={"sg2048-board " + (phase !== "playing" ? "sg2048-board-paused" : "")}
+        data-game-surface="true"
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
@@ -409,15 +584,15 @@ export default function Game2048() {
             return (
               <div
                 key={tile.id}
-                className={`sg2048-tile ${tile.born ? "sg2048-tile-born" : ""} ${tile.merged ? "sg2048-tile-merged" : ""}`}
+                className={"sg2048-tile " + (tile.born ? "sg2048-tile-born " : "") + (tile.merged ? "sg2048-tile-merged" : "")}
                 style={{
-                  left: `calc(${tile.col} * ((100% - 18px) / 4 + 6px))`,
-                  top: `calc(${tile.row} * ((100% - 18px) / 4 + 6px))`,
-                  width: `calc((100% - 18px) / 4)`,
-                  height: `calc((100% - 18px) / 4)`,
+                  left: "calc(" + tile.col + " * ((100% - 18px) / 4 + 6px))",
+                  top: "calc(" + tile.row + " * ((100% - 18px) / 4 + 6px))",
+                  width: "calc((100% - 18px) / 4)",
+                  height: "calc((100% - 18px) / 4)",
                   background: colors.background,
                   color: colors.foreground,
-                  boxShadow: `0 10px 26px ${colors.shadow}, inset 0 1px 0 #ffffff55`,
+                  boxShadow: "0 10px 26px " + colors.shadow + ", inset 0 1px 0 #ffffff55",
                   fontSize: fontSizeFor(tile.value),
                 }}
               >
@@ -428,7 +603,7 @@ export default function Game2048() {
         </div>
 
         {phase !== "playing" && (
-          <div className={`sg2048-overlay ${phase === "won" ? "sg2048-overlay-win" : ""}`}>
+          <div className={"sg2048-overlay " + (phase === "won" ? "sg2048-overlay-win" : "")}>
             <div className="sg2048-overlay-card">
               {phase === "won" ? (
                 <>
@@ -461,7 +636,7 @@ export default function Game2048() {
           <strong>{maxTile}</strong>
         </div>
         <div className="sg2048-progress-track">
-          <i style={{ width: `${progress}%` }} />
+          <i style={{ width: progress + "%" }} />
         </div>
         <span>{emptyCount} CASES LIBRES</span>
       </div>
