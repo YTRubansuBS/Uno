@@ -1,6 +1,7 @@
 /* ILLEGAL RUNNER loader: original engine + live customization + persistent Supabase progression. */
 (() => {
   const ORIGINAL = './game-engine-original.js'
+  const IR_EMBED_MODE = new URLSearchParams(location.search).get('embed') === '1'
   let __duelRngState = 1
   window.IR_DUEL_SET_WORLD_RNG = (seed) => {
     let s = (Number(seed) >>> 0) || 1
@@ -47,7 +48,7 @@
       code = code.replace('const minGap = clamp(1.05 - G.dist / 6000, 0.5, 1.05)','const minGap = window.IR_DUEL_ACTIVE ? 0.82 : clamp(1.05 - G.dist / 6000, 0.5, 1.05)')
       code = code.replace('G.coinT = 1.4 + Math.random() * 0.8','G.coinT = 1.4 + IR_WORLD_RANDOM() * 0.8')
       code = code.replace('G.bonusT = rand(9, 15) - (profile.bonus_level || 1)','G.bonusT = IR_WORLD_RANGE(9, 15) - (profile.bonus_level || 1)')
-      code = code.replace('  const CFG = window.IR_CONFIG || {}', '  const IR_WORLD_RANDOM = () => (window.IR_DUEL_ACTIVE && window.__IR_DUEL_WORLD_RNG ? window.__IR_DUEL_WORLD_RNG() : globalThis.Math.random())\n  const IR_WORLD_RANGE = (a,b) => a + IR_WORLD_RANDOM() * (b-a)\n  const IR_WORLD_PICK = arr => arr[(IR_WORLD_RANDOM() * arr.length) | 0]\n  const CFG = window.IR_CONFIG || {}')
+      code = code.replace('  const CFG = window.IR_CONFIG || {}', '  const IR_EMBED_MODE = window.IR_EMBED_MODE === true || new URLSearchParams(location.search).get("embed") === "1"\n  const CFG = window.IR_CONFIG || {}\n  const IR_WORLD_RANDOM = () => (window.IR_DUEL_ACTIVE && window.__IR_DUEL_WORLD_RNG ? window.__IR_DUEL_WORLD_RNG() : globalThis.Math.random())\n  const IR_WORLD_RANGE = (a,b) => a + IR_WORLD_RANDOM() * (b-a)\n  const IR_WORLD_PICK = arr => arr[(IR_WORLD_RANDOM() * arr.length) | 0]\n  const CFG = window.IR_CONFIG || {}')
 
       code = code.replace('    G.lives = G.maxLives', '    G.lives = G.maxLives\n    if (window.IR_DUEL_ACTIVE && window.IR_DUEL_CONFIG && Number.isFinite(Number(window.IR_DUEL_CONFIG.lives)) && Number(window.IR_DUEL_CONFIG.lives) > 0) { G.maxLives = Math.max(1, Math.floor(Number(window.IR_DUEL_CONFIG.lives))); G.lives = G.maxLives }')
       code = code.replace('        G.running = true\n        G.startTime = performance.now()', '        G.running = true\n        G.startTime = performance.now()\n        window.dispatchEvent(new CustomEvent("ir:duelStarted"))')
@@ -285,12 +286,9 @@
           o.dead = true
           burst(o.x + o.w / 2, o.y + o.h / 2, G.world.accent, 14)
           SFX.dash()
-        } else if (G.dashT > 0 && dashMaxed) {
         } else if (G.dashT > 0) {
+          // Dash is a protection tool at every level; level 5 also destroys destructible obstacles.
           o.hitDone = true
-          G.lives = 0
-          drawHearts()
-          end()
         } else if (p.inv <= 0) {
           o.hitDone = true
           hurt(false)
