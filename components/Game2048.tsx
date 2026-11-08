@@ -83,6 +83,7 @@ function compressLine(line: Tile[]) {
         value: current.value * 2,
         row: current.row,
         col: current.col,
+        born: false,
         merged: true,
       };
       result.push(merged);
