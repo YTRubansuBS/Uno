@@ -309,15 +309,15 @@ button.icon{padding:10px 12px;background:#0a1a30}
 }
 
 /* ================= SCROLL GAME EMBED ================= */
-body.ir-embed{
+html.ir-embed,body.ir-embed{
   overflow:hidden;
   background:#02040a;
 }
-body.ir-embed #login,
-body.ir-embed #app{
+html.ir-embed #login,body.ir-embed #login,
+html.ir-embed #app,body.ir-embed #app{
   display:none!important;
 }
-body.ir-embed #game{
+html.ir-embed #game,body.ir-embed #game{
   display:block!important;
   position:fixed!important;
   inset:0!important;
