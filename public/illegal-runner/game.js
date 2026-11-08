@@ -25,6 +25,18 @@
   fetch(ORIGINAL, { cache: 'no-store' })
     .then(r => { if (!r.ok) throw new Error('Impossible de charger le moteur du jeu'); return r.text() })
     .then(code => {
+      code = `
+const IR_WORLD_RANDOM = () => {
+  try {
+    if (typeof window !== "undefined" && typeof window.__IR_DUEL_WORLD_RNG === "function") {
+      return window.__IR_DUEL_WORLD_RNG()
+    }
+  } catch (e) {}
+  return Math.random()
+}
+const IR_WORLD_RANGE = (a, b) => a + IR_WORLD_RANDOM() * (b - a)
+const IR_WORLD_PICK = (arr) => arr[(IR_WORLD_RANDOM() * arr.length) | 0]
+` + code
       code = code.replace('const G = {', 'const G = window.__IR_G = {')
       // Remove the shared skyline so generic buildings never hide the world view.
       code = code.replace('    // far parallax skyline\n    drawSkyline(ctx, W, H, w.far, 0.12, 80, 150, 46)\n    drawSkyline(ctx, W, H, w.mid, 0.26, 55, 210, 64)', '    // Shared skyline disabled: keep the world view clear.\n')
@@ -446,7 +458,12 @@
     jb.addEventListener("pointerdown", (e) => { e.preventDefault(); jump() })
     jb.addEventListener("pointerup", releaseJump)
     jb.addEventListener("pointercancel", releaseJump)
-    $("btnDash").addEventListener("pointerdown", (e) => { e.preventDefault(); dash() })`, `    $("btnDash").addEventListener("pointerdown", (e) => { e.preventDefault(); dash() })`)
+    $("btnDash").addEventListener("pointerdown", (e) => { e.preventDefault(); dash() })`, `    const jb = $("btnJump")
+    jb.addEventListener("pointerdown", (e) => { e.preventDefault(); jump() })
+    jb.addEventListener("pointerup", releaseJump)
+    jb.addEventListener("pointercancel", releaseJump)
+    jb.addEventListener("pointerleave", releaseJump)
+    $("btnDash").addEventListener("pointerdown", (e) => { e.preventDefault(); dash() })`)
       code = code.replace('else if (t.dataset.pack) openPack(t.dataset.pack)', 'else if (t.dataset.pack) { e.preventDefault(); }')
       code = code.replace('const ext = document.createElement(\'script\'); ext.src = \'customizer.js?v=8\'; document.body.appendChild(ext)', `const oldLegacy = document.getElementById('legacyPackBox')
       if (oldLegacy) oldLegacy.style.display = 'none'
